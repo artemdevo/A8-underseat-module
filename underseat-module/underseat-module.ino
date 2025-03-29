@@ -12,10 +12,10 @@
 
 byte voicestate = 0; //use this just for voice messages
 byte truestate = 0;
-byte transitionup; 
-byte transitiondown;
+byte transitionup = 0; 
+byte transitiondown = 0;
 byte messageplaycount;
-SoftwareSerial softSerial(/*rx =*/4, /*tx =*/5);//WILL NEED TO CHANGE THIS WHEN I GO TO THE UNO
+SoftwareSerial softSerial(/*rx =*/6, /*tx =*/7);//ON THE UNO THIS NEEDS TO BE RX 6 AND TX 7
 DFRobotDFPlayerMini myDFPlayer;
 int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
 int time2;// for testing 3/28/2025
@@ -30,7 +30,7 @@ void setup() {
 void loop() {
   
 ////---------------------------------------------------------------------------------------------------going up when press up on the bezel ring
-if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800){//if up on the bezel ring is pressed, increase state by 1 
+if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800 && !transitionup){//if up on the bezel ring is pressed, increase state by 1 
   if(voicestate == MAX_STATE){
     voicestate = 0; //if at maximum state, go back to 0
   }
@@ -41,18 +41,18 @@ if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800){//if up on the bezel ring
   messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played 
 }
 
-if(analogRead(BEZ_RNG>1000 && transitionup==1)){//if the bezel ring is released, this completes the state transition up
+if(analogRead(BEZ_RNG)>1000 && transitionup){//if the bezel ring is released, this completes the state transition up
   if(truestate == MAX_STATE){
     truestate = 0; //if at maximum state, go back to 0
   }
   else{
   truestate++; //complete the state transition up
   }
-  transitionup = 0;
+  transitionup = 0;  
 }
 
 /////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
-if(analogRead(BEZ_RNG)<470){//if down on the bezel ring is pressed, decrease state by 1 
+if(analogRead(BEZ_RNG)<470 && !transitiondown){//if down on the bezel ring is pressed, decrease state by 1 
   if(voicestate == 0){
     voicestate = MAX_STATE; //if at 0 state, loop back around to highest state
   }
@@ -63,7 +63,7 @@ if(analogRead(BEZ_RNG)<470){//if down on the bezel ring is pressed, decrease sta
   messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played
 }
 
-if(analogRead(BEZ_RNG>1000 && transitiondown==1)){//if the bezel ring is released, this completes the state transition down
+if(analogRead(BEZ_RNG)>1000 && transitiondown){//if the bezel ring is released, this completes the state transition down
   if(truestate == 0){
     truestate = MAX_STATE; //if at 0 state, loop back around to highest state
   }
@@ -114,11 +114,15 @@ if((time2-time1)>1000)
 {
 Serial.print(voicestate);
 Serial.print(" ");
-Serial.println(truestate);
-
+Serial.print(truestate);
+Serial.print(" ");
+Serial.print(transitionup);
+Serial.print(" ");
+Serial.println(transitiondown);
+time1 = time2; 
 }
 
 ///////------------------------------------------------------
 
-
+//delay(500);///for testing 
 }
