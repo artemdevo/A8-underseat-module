@@ -91,6 +91,7 @@ if(analogRead(BEZ_RNG)>900 && transitiondown){//if the bezel ring is released, t
 if(analogRead(BTN)<500 && !massagetransition){
   if(massageon){//if button is pressed with massage on
     massageon = 0;
+    massagetransition = 1;
   }
   else if(!massageon){//start the massage when button pressed measure time start
     massageon = 1;
@@ -104,7 +105,7 @@ if(massageon){//turn massage off if 10 minutes have elapsed
     //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit); placeholder, need to figure out messageframe 
     canmessagetime = millis();
   }
-  else if((millis()-massagestarttime)>1000*60*10){
+  else if((millis()-massagestarttime)>60000){
     massageon = 0;
   }
 }
@@ -160,7 +161,11 @@ Serial.print(truestate);
 Serial.print(" ");
 Serial.print(transitionup);
 Serial.print(" ");
-Serial.println(transitiondown);
+Serial.print(transitiondown);
+Serial.print(" ");
+Serial.print(massageon);
+Serial.print(" ");
+Serial.println(massagetransition);
 time1 = time2; 
 }
 
