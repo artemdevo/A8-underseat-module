@@ -124,7 +124,9 @@ if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage butt
 
 
 if(messageplaycount==0){
+  Serial.println(voicestate);
   switch(voicestate){
+    
     case 0:{
       //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
       myDFPlayer.play(1);
