@@ -105,7 +105,7 @@ if(massageon){//turn massage off if 10 minutes have elapsed
     //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit); placeholder, need to figure out messageframe 
     canmessagetime = millis();
   }
-  if((millis()-massagestarttime)>(1000L*60L){//60 seconds
+  if((millis()-massagestarttime)>(1000L*60L)){//60 seconds
     massageon = 0;
   }
 }
