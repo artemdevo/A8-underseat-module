@@ -30,9 +30,11 @@ MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
 
 void setup() {
   // put your setup code here, to run once:
+  FPSerial.begin(9600);
   myDFPlayer.begin(FPSerial, /*isACK = */true, /*doReset = */false);
   myDFPlayer.volume(15);  //Set volume value. From 0 to 30
   Serial.begin(9600);
+  
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
   CAN0.setMode(MCP_NORMAL);
   messageplaycount = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
@@ -125,22 +127,23 @@ if(messageplaycount==0){
   switch(voicestate){
     case 0:{
       //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
+      myDFPlayer.play(1);
     }
     break;
     case 1:{
-
+      myDFPlayer.play(2);
     }
     break;
     case 2:{
-
+      myDFPlayer.play(3);
     }
     break;
     case 3:{
-
+      myDFPlayer.play(4);
     }
     break;
     case 4:{
-
+      myDFPlayer.play(5);
     }
     break;
 
