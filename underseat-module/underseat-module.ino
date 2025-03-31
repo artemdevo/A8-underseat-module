@@ -26,10 +26,17 @@ DFRobotDFPlayerMini myDFPlayer;
 int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
 int time2;// for testing 3/28/2025
 
+
+
 MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
 
 void setup() {
   // put your setup code here, to run once:
+  pinMode(2, OUTPUT);//do i need to write these low?
+  pinMode(3, OUTPUT);
+  pinMode(4, OUTPUT);
+  pinMode(5, OUTPUT);
+
   FPSerial.begin(9600);
   Serial.begin(9600);
   Serial.println(" ");
@@ -125,12 +132,48 @@ if(massageon){//turn massage off if 10 minutes have elapsed
 if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage button, return massagetransition to value 0
   massagetransition = 0;
 }
+////////////----------------------------------------------------------------------------------
 
+////////////////////---------------------------------------------------when in state 2? can control motors
 
+if(truestate == 2){
+  if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
+    digitalWrite(2, HIGH);//no idea if this is the right pin, but i will find out
+    digitalWrite(3, LOW);
+  }
+  else if(analogRead(D_PAD_UD)<470){//if down is pressed on the d pad
+    digitalWrite(3, HIGH);
+    digitalWrite(2, LOW);
+  }
+  else{//if neither of these are true, D_PAD_UD must be high, turn off the upper back motor
+  digitalWrite(2, LOW);
+  digitalWrite(2, LOW);
+  }
+  // -     -       -    -        -     -        -     -         -      -        -
 
+  if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
+    digitalWrite(4, HIGH);//no idea if this is the right pin, but i will find out
+    digitalWrite(5, LOW);
+  }
+  else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
+    digitalWrite(5, HIGH);
+    digitalWrite(4, LOW);
+  }
+  else{//if neither of these are true, D_PAD_FB must be high, turn off the lower leg motor
+  digitalWrite(4, LOW);
+  digitalWrite(5, LOW);
+  }
 
+}
+else{//if the current state is not 2 (or whatever state), make sure that the motors cannot move 
+  digitalWrite(2, LOW);
+  digitalWrite(3, LOW);
+  digitalWrite(4, LOW);
+  digitalWrite(5, LOW);
+}
+//////////////////////////-----------------------------------------------
 
-/////////-------------------------
+/////////------------------------------------switch case for playing messages when a state change happens 
 
 
 if(messageplaycount==0){
