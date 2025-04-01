@@ -39,22 +39,19 @@ void setup() {
 
   FPSerial.begin(9600);
   Serial.begin(9600);
-  //Serial.println(" ");
-  //Serial.println(millis());
-  myDFPlayer.begin(FPSerial, /*isACK = */true, /*doReset = */false);
-  //Serial.println(millis());
-  myDFPlayer.volume(15);  //Set volume value. From 0 to 30
-  //Serial.println(millis());
+ 
+  myDFPlayer.begin(FPSerial, /*isACK = */true, /*doReset = */true);//reset needs to be true for this shit to work on external power
   
-  myDFPlayer.setTimeOut(2000);//need this to be at least one second when using external power. don't need on usb
-  //Serial.println(millis());
+  myDFPlayer.volume(15);  //Set volume value. From 0 to 30
+  
+  
   
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
   CAN0.setMode(MCP_NORMAL);
-  //Serial.println(millis());
+  
   messageplaycount = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
-  myDFPlayer.play(1); //this is a "flush" play. waits a second before playing this one, then never again for the remainder of the power cycle
- //Serial.println(millis());
+  //myDFPlayer.play(1); //this is a "flush" play. waits a second before playing this one, then never again for the remainder of the power cycle
+ 
   
 }
 
