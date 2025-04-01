@@ -39,22 +39,23 @@ void setup() {
 
   FPSerial.begin(9600);
   Serial.begin(9600);
-  Serial.println(" ");
-  Serial.println(millis());
+  //Serial.println(" ");
+  //Serial.println(millis());
   myDFPlayer.begin(FPSerial, /*isACK = */true, /*doReset = */false);
-  Serial.println(millis());
+  //Serial.println(millis());
   myDFPlayer.volume(15);  //Set volume value. From 0 to 30
-  Serial.println(millis());
+  //Serial.println(millis());
   
-  myDFPlayer.setTimeOut(1000);//need this to be at least one second when using external power. don't need on usb
-  Serial.println(millis());
+  myDFPlayer.setTimeOut(2000);//need this to be at least one second when using external power. don't need on usb
+  //Serial.println(millis());
   
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
   CAN0.setMode(MCP_NORMAL);
-  Serial.println(millis());
+  //Serial.println(millis());
   messageplaycount = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
   myDFPlayer.play(1); //this is a "flush" play. waits a second before playing this one, then never again for the remainder of the power cycle
-  Serial.println(millis());
+ //Serial.println(millis());
+  
 }
 
 void loop() {
@@ -138,30 +139,30 @@ if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage butt
 
 if(truestate == 2){
   if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
-    digitalWrite(2, HIGH);//no idea if this is the right pin, but i will find out
-    digitalWrite(3, LOW);
+    digitalWrite(4, HIGH);//no idea if this is the right pin, but i will find out
+    digitalWrite(5, LOW);
   }
   else if(analogRead(D_PAD_UD)<470){//if down is pressed on the d pad
-    digitalWrite(3, HIGH);
-    digitalWrite(2, LOW);
+    digitalWrite(5, HIGH);
+    digitalWrite(4, LOW);
   }
   else{//if neither of these are true, D_PAD_UD must be high, turn off the upper back motor
-  digitalWrite(2, LOW);
-  digitalWrite(2, LOW);
+  digitalWrite(4, LOW);
+  digitalWrite(5, LOW);
   }
   // -     -       -    -        -     -        -     -         -      -        -
 
   if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
-    digitalWrite(4, HIGH);//no idea if this is the right pin, but i will find out
-    digitalWrite(5, LOW);
+    digitalWrite(2, HIGH);//no idea if this is the right pin, but i will find out
+    digitalWrite(3, LOW);
   }
   else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
-    digitalWrite(5, HIGH);
-    digitalWrite(4, LOW);
+    digitalWrite(3, HIGH);
+    digitalWrite(2, LOW);
   }
   else{//if neither of these are true, D_PAD_FB must be high, turn off the lower leg motor
-  digitalWrite(4, LOW);
-  digitalWrite(5, LOW);
+  digitalWrite(2, LOW);
+  digitalWrite(3, LOW);
   }
 
 }
@@ -186,9 +187,9 @@ if(messageplaycount==0){
     }
     break;
     case 1:{
-      Serial.println(millis());
+      //Serial.println(millis());
       myDFPlayer.play(2);
-      Serial.println(millis());
+      //Serial.println(millis());
     }
     break;
     case 2:{
