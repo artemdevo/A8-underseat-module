@@ -29,22 +29,22 @@ void loop() {
   // put your main code here, to run repeatedly:
   
   
-  for(int i = 0; i < 3; i++){//changing this value to see what the different solenoids do
-    digitalWrite(lumbarpins[i], HIGH);
+  for(int i = 2; i < 3; i++){//changing this value to see what the different solenoids do
+    digitalWrite(30, HIGH);
 
-    while(analogRead(PRES)<400){
+    while(analogRead(PRES)<700){
       digitalWrite(COMP, HIGH);
     }
     digitalWrite(COMP, LOW);
-    delay(5000);
+    delay(2000);
 
     while(analogRead(PRES)>50){
-      digitalWrite(VENT, HIGH);
+      digitalWrite(VENT,HIGH);
     }
     digitalWrite(VENT, LOW);
-    Serial.println(analogRead(PRES));
-    delay(5000);
-    digitalWrite(lumbarpins[i], LOW);
+    //Serial.println(analogRead(PRES));
+    delay(2000);
+    digitalWrite(30, LOW);
     delay(50);
   }
   
