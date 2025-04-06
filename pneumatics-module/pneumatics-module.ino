@@ -174,8 +174,8 @@ void loop() {
                               //CAN APPLY TO THE OTHER PNEUMATICS AS WELL
       digitalWrite(COMP, HIGH);
     }
-    else{
-      digitalWrite(COMP, LOW);
+    else if(analogRead(PRES)>820){//add a statement to turn off slightly above 800 to introduce hysteresis
+      digitalWrite(COMP, LOW);  
     }
 
 
