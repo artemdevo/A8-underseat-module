@@ -27,6 +27,9 @@ DFRobotDFPlayerMini myDFPlayer;
 int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
 int time2;// for testing 3/28/2025
 
+byte ignit[4] = {0x00, 0x00, 0xff, 0xff};
+byte hvac[3]= {0x0, 0xC0, 0x0};
+
 void seatmotoradjust();
 
 
@@ -108,9 +111,11 @@ void loop() {
     if((millis()-canmessagetime) > 200){//if more than 150 ms have elapsed, send CAN message
 
       //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit); placeholder, need to figure out messageframe 
+      CAN0.sendMsgBuf(0x3C0, 0, 4, ignit);
+      CAN0.sendMsgBuf(0x664, 0, 3, hvac);
       canmessagetime = millis();
     }
-    if((millis()-massagestarttime)>(1000L*60L)){//60 seconds
+    if((millis()-massagestarttime)>(1000L*60L*10L)){//60*10 seconds
       massageon = 0;
     }
   }
@@ -121,8 +126,9 @@ void loop() {
   ////////////----------------------------------------------------------------------------------
 
   ////////////////////---------------------------------------------------when in state 2? can control motors
-
+  
   seatmotoradjust();
+  
   //////////////////////////-----------------------------------------------
 
   /////////------------------------------------switch case for playing messages when a state change happens 
@@ -171,11 +177,13 @@ void loop() {
   Serial.print(" ");
   Serial.print(truestate);
   Serial.print(" ");
-  Serial.println(bezeltransition);
-  //Serial.print(" ");
-  //Serial.print(massageon);
-  //Serial.print(" ");
-  //Serial.println(massagetransition);
+  Serial.print(bezeltransition);
+  Serial.print(" ");
+  Serial.print(massageon);
+  Serial.print(" ");
+  Serial.print(massagetransition);
+  Serial.print(" ");
+  Serial.println(millis()-massagestarttime);
   time1 = time2; 
   //}
 
@@ -185,7 +193,7 @@ void loop() {
 }
 
 void seatmotoradjust(){
-if(truestate == 2){
+  if(truestate == 2){
     if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
       digitalWrite(5, HIGH);//no idea if this is the right pin, but i will find out
       digitalWrite(4, LOW);
