@@ -14,8 +14,9 @@
 
 byte voicestate = 0; //use this just for voice messages
 byte truestate = 0;
-byte transitionup = 0; 
-byte transitiondown = 0;
+
+byte bezeltransition; 
+
 byte messageplaycount;
 byte massageon = 0;
 byte massagetransition = 0;
@@ -27,7 +28,6 @@ int time1 = 0; //for testing 3/28/2025- i think int will work? there will be ove
 int time2;// for testing 3/28/2025
 
 void seatmotoradjust();
-
 
 
 MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
@@ -60,56 +60,35 @@ void setup() {
 void loop() {
   
 ////---------------------------------------------------------------------------------------------------going up when press up on the bezel ring
-  if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800 && !transitionup){//if up on the bezel ring is pressed, increase state by 1 
+  if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800 && !bezeltransition){//if up on the bezel ring is pressed, increase state by 1 
     if(voicestate == MAX_STATE){
       voicestate = 0; //if at maximum state, go back to 0
     }
     else{
     voicestate++; //play voice message for whatever state you just changed to, probably make it a switch case?
     }
-    transitionup = 1; //prep for the state transition
-    transitiondown = 0; //make sure transitiondown is 0
+    bezeltransition = 1;
     messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played 
   }
-  /*
-  if(analogRead(BEZ_RNG)>900 && transitionup){//if the bezel ring is released, this completes the state transition up
-    if(truestate == MAX_STATE){
-      truestate = 0; //if at maximum state, go back to 0
-    }
-    else{
-    truestate++; //complete the state transition up
-    }
-    transitionup = 0;  
-  }
-  */
+  
   /////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
-  if(analogRead(BEZ_RNG)<470 && !transitiondown){//if down on the bezel ring is pressed, decrease state by 1 
+  if(analogRead(BEZ_RNG)<470 && !bezeltransition){//if down on the bezel ring is pressed, decrease state by 1 
     if(voicestate == 0){
       voicestate = MAX_STATE; //if at 0 state, loop back around to highest state
     }
     else{
     voicestate--; //play voice message for whatever state you just changed to, probably make it a switch case?
     }; 
-    transitiondown = 1; //prep for the state transition
-    transitionup = 0; //make sure transitionup is off
+    bezeltransition = 1; //prep for the state transition
+    //make sure transitionup is off
     messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played
   }
 
-  /*
-  if(analogRead(BEZ_RNG)>900 && transitiondown){//if the bezel ring is released, this completes the state transition down
-    if(truestate == 0){
-      truestate = MAX_STATE; //if at 0 state, loop back around to highest state
-    }
-    else{
-    truestate--; //complete the state transition down
-    }; 
-    transitiondown = 0;
-  }
-  */
+
   if(analogRead(BEZ_RNG)>900){
     truestate = voicestate;
-    transitionup = 0;
-    transitiondown = 0;
+    bezeltransition = 0;
+   
   }
   //////--------------------------------------------------------------------------------------------------------
 
@@ -186,21 +165,19 @@ void loop() {
 
   time2 = millis();
 
-  if((time2-time1)>200)
-  {
+  //if((time2-time1)>200)
+  //{
   Serial.print(voicestate);
   Serial.print(" ");
   Serial.print(truestate);
   Serial.print(" ");
-  Serial.print(transitionup);
-  Serial.print(" ");
-  Serial.print(transitiondown);
-  Serial.print(" ");
-  Serial.print(massageon);
-  Serial.print(" ");
-  Serial.println(massagetransition);
+  Serial.println(bezeltransition);
+  //Serial.print(" ");
+  //Serial.print(massageon);
+  //Serial.print(" ");
+  //Serial.println(massagetransition);
   time1 = time2; 
-  }
+  //}
 
   ///////------------------------------------------------------
 
