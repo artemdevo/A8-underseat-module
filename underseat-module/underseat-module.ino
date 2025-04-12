@@ -26,6 +26,8 @@ DFRobotDFPlayerMini myDFPlayer;
 int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
 int time2;// for testing 3/28/2025
 
+void seatmotoradjust();
+
 
 
 MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
@@ -58,176 +60,186 @@ void setup() {
 void loop() {
   
 ////---------------------------------------------------------------------------------------------------going up when press up on the bezel ring
-if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800 && !transitionup){//if up on the bezel ring is pressed, increase state by 1 
-  if(voicestate == MAX_STATE){
-    voicestate = 0; //if at maximum state, go back to 0
-  }
-  else{
-  voicestate++; //play voice message for whatever state you just changed to, probably make it a switch case?
-  }
-  transitionup = 1; //prep for the state transition
-  transitiondown = 0; //make sure transitiondown is 0
-  messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played 
-}
-
-if(analogRead(BEZ_RNG)>900 && transitionup){//if the bezel ring is released, this completes the state transition up
-  if(truestate == MAX_STATE){
-    truestate = 0; //if at maximum state, go back to 0
-  }
-  else{
-  truestate++; //complete the state transition up
-  }
-  transitionup = 0;  
-}
-
-/////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
-if(analogRead(BEZ_RNG)<470 && !transitiondown){//if down on the bezel ring is pressed, decrease state by 1 
-  if(voicestate == 0){
-    voicestate = MAX_STATE; //if at 0 state, loop back around to highest state
-  }
-  else{
-  voicestate--; //play voice message for whatever state you just changed to, probably make it a switch case?
-  }; 
-  transitiondown = 1; //prep for the state transition
-  transitionup = 0; //make sure transitionup is off
-  messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played
-}
-
-if(analogRead(BEZ_RNG)>900 && transitiondown){//if the bezel ring is released, this completes the state transition down
-  if(truestate == 0){
-    truestate = MAX_STATE; //if at 0 state, loop back around to highest state
-  }
-  else{
-  truestate--; //complete the state transition down
-  }; 
-  transitiondown = 0;
-}
-//////--------------------------------------------------------------------------------------------------------
-
-////////-----------------------------------------------------------------------------massage button and massage function stuff. adjustments to the massage will be done in a state
-if(analogRead(BTN)<500 && !massagetransition){
-  if(massageon){//if button is pressed with massage on
-    massageon = 0;
-    massagetransition = 1;
-  }
-  else if(!massageon){//start the massage when button pressed measure time start
-    massageon = 1;
-    massagetransition = 1;
-    massagestarttime = millis();
-  }
-}
-if(massageon){//turn massage off if 10 minutes have elapsed
-  if((millis()-canmessagetime) > 200){//if more than 150 ms have elapsed, send CAN message
-
-    //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit); placeholder, need to figure out messageframe 
-    canmessagetime = millis();
-  }
-  if((millis()-massagestarttime)>(1000L*60L)){//60 seconds
-    massageon = 0;
-  }
-}
-
-if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage button, return massagetransition to value 0
-  massagetransition = 0;
-}
-////////////----------------------------------------------------------------------------------
-
-////////////////////---------------------------------------------------when in state 2? can control motors
-
-if(truestate == 2){
-  if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
-    digitalWrite(5, HIGH);//no idea if this is the right pin, but i will find out
-    digitalWrite(4, LOW);
-  }
-  else if(analogRead(D_PAD_UD)<470){//if down is pressed on the d pad
-    digitalWrite(4, HIGH);
-    digitalWrite(5, LOW);
-  }
-  else{//if neither of these are true, D_PAD_UD must be high, turn off the upper back motor
-  digitalWrite(4, LOW);
-  digitalWrite(5, LOW);
-  }
-  // -     -       -    -        -     -        -     -         -      -        -
-
-  if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
-    digitalWrite(2, HIGH);//no idea if this is the right pin, but i will find out
-    digitalWrite(3, LOW);
-  }
-  else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
-    digitalWrite(3, HIGH);
-    digitalWrite(2, LOW);
-  }
-  else{//if neither of these are true, D_PAD_FB must be high, turn off the lower leg motor
-  digitalWrite(2, LOW);
-  digitalWrite(3, LOW);
-  }
-
-}
-else{//if the current state is not 2 (or whatever state), make sure that the motors cannot move 
-  digitalWrite(2, LOW);
-  digitalWrite(3, LOW);
-  digitalWrite(4, LOW);
-  digitalWrite(5, LOW);
-}
-//////////////////////////-----------------------------------------------
-
-/////////------------------------------------switch case for playing messages when a state change happens 
-
-
-if(messageplaycount==0){
-  Serial.println(voicestate);
-  switch(voicestate){
-    
-    case 0:{
-      //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
-      myDFPlayer.play(1);
+  if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800 && !transitionup){//if up on the bezel ring is pressed, increase state by 1 
+    if(voicestate == MAX_STATE){
+      voicestate = 0; //if at maximum state, go back to 0
     }
-    break;
-    case 1:{
-      //Serial.println(millis());
-      myDFPlayer.play(2);
-      //Serial.println(millis());
+    else{
+    voicestate++; //play voice message for whatever state you just changed to, probably make it a switch case?
     }
-    break;
-    case 2:{
-      myDFPlayer.play(3);
-    }
-    break;
-    case 3:{
-      myDFPlayer.play(4);
-    }
-    break;
-    case 4:{
-      myDFPlayer.play(5);
-    }
-    break;
-
+    transitionup = 1; //prep for the state transition
+    transitiondown = 0; //make sure transitiondown is 0
+    messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played 
   }
-  messageplaycount++;
-}
-/////----------------------------------------------------
+  /*
+  if(analogRead(BEZ_RNG)>900 && transitionup){//if the bezel ring is released, this completes the state transition up
+    if(truestate == MAX_STATE){
+      truestate = 0; //if at maximum state, go back to 0
+    }
+    else{
+    truestate++; //complete the state transition up
+    }
+    transitionup = 0;  
+  }
+  */
+  /////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
+  if(analogRead(BEZ_RNG)<470 && !transitiondown){//if down on the bezel ring is pressed, decrease state by 1 
+    if(voicestate == 0){
+      voicestate = MAX_STATE; //if at 0 state, loop back around to highest state
+    }
+    else{
+    voicestate--; //play voice message for whatever state you just changed to, probably make it a switch case?
+    }; 
+    transitiondown = 1; //prep for the state transition
+    transitionup = 0; //make sure transitionup is off
+    messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played
+  }
 
-////-----------------------------------------for testing only, make a thing that prints the truestate and voice state once per second
+  /*
+  if(analogRead(BEZ_RNG)>900 && transitiondown){//if the bezel ring is released, this completes the state transition down
+    if(truestate == 0){
+      truestate = MAX_STATE; //if at 0 state, loop back around to highest state
+    }
+    else{
+    truestate--; //complete the state transition down
+    }; 
+    transitiondown = 0;
+  }
+  */
+  if(analogRead(BEZ_RNG)>900){
+    truestate = voicestate;
+    transitionup = 0;
+    transitiondown = 0;
+  }
+  //////--------------------------------------------------------------------------------------------------------
 
-time2 = millis();
+  ////////-----------------------------------------------------------------------------massage button and massage function stuff. adjustments to the massage will be done in a state
+  if(analogRead(BTN)<500 && !massagetransition){
+    if(massageon){//if button is pressed with massage on
+      massageon = 0;
+      massagetransition = 1;
+    }
+    else if(!massageon){//start the massage when button pressed measure time start
+      massageon = 1;
+      massagetransition = 1;
+      massagestarttime = millis();
+    }
+  }
+  if(massageon){//turn massage off if 10 minutes have elapsed
+    if((millis()-canmessagetime) > 200){//if more than 150 ms have elapsed, send CAN message
 
-if((time2-time1)>200)
-{
-Serial.print(voicestate);
-Serial.print(" ");
-Serial.print(truestate);
-Serial.print(" ");
-Serial.print(transitionup);
-Serial.print(" ");
-Serial.print(transitiondown);
-Serial.print(" ");
-Serial.print(massageon);
-Serial.print(" ");
-Serial.println(massagetransition);
-time1 = time2; 
-}
+      //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit); placeholder, need to figure out messageframe 
+      canmessagetime = millis();
+    }
+    if((millis()-massagestarttime)>(1000L*60L)){//60 seconds
+      massageon = 0;
+    }
+  }
 
-///////------------------------------------------------------
+  if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage button, return massagetransition to value 0
+    massagetransition = 0;
+  }
+  ////////////----------------------------------------------------------------------------------
+
+  ////////////////////---------------------------------------------------when in state 2? can control motors
+
+  seatmotoradjust();
+  //////////////////////////-----------------------------------------------
+
+  /////////------------------------------------switch case for playing messages when a state change happens 
+
+
+  if(messageplaycount==0){
+    Serial.println(voicestate);
+    switch(voicestate){
+      
+      case 0:{
+        //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
+        myDFPlayer.play(1);
+      }
+      break;
+      case 1:{
+        //Serial.println(millis());
+        myDFPlayer.play(2);
+        //Serial.println(millis());
+      }
+      break;
+      case 2:{
+        myDFPlayer.play(3);
+      }
+      break;
+      case 3:{
+        myDFPlayer.play(4);
+      }
+      break;
+      case 4:{
+        myDFPlayer.play(5);
+      }
+      break;
+
+    }
+    messageplaycount++;
+  }
+  /////----------------------------------------------------
+
+  ////-----------------------------------------for testing only, make a thing that prints the truestate and voice state once per second
+
+  time2 = millis();
+
+  if((time2-time1)>200)
+  {
+  Serial.print(voicestate);
+  Serial.print(" ");
+  Serial.print(truestate);
+  Serial.print(" ");
+  Serial.print(transitionup);
+  Serial.print(" ");
+  Serial.print(transitiondown);
+  Serial.print(" ");
+  Serial.print(massageon);
+  Serial.print(" ");
+  Serial.println(massagetransition);
+  time1 = time2; 
+  }
+
+  ///////------------------------------------------------------
 
 //delay(500);///for testing 
+}
+
+void seatmotoradjust(){
+if(truestate == 2){
+    if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
+      digitalWrite(5, HIGH);//no idea if this is the right pin, but i will find out
+      digitalWrite(4, LOW);
+    }
+    else if(analogRead(D_PAD_UD)<470){//if down is pressed on the d pad
+      digitalWrite(4, HIGH);
+      digitalWrite(5, LOW);
+    }
+    else{//if neither of these are true, D_PAD_UD must be high, turn off the upper back motor
+    digitalWrite(4, LOW);
+    digitalWrite(5, LOW);
+    }
+    // -     -       -    -        -     -        -     -         -      -        -
+
+    if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
+      digitalWrite(2, HIGH);//no idea if this is the right pin, but i will find out
+      digitalWrite(3, LOW);
+    }
+    else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
+      digitalWrite(3, HIGH);
+      digitalWrite(2, LOW);
+    }
+    else{//if neither of these are true, D_PAD_FB must be high, turn off the lower leg motor
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+    }
+  }
+  else{//if the current state is not 2 (or whatever state), make sure that the motors cannot move 
+    digitalWrite(2, LOW);
+    digitalWrite(3, LOW);
+    digitalWrite(4, LOW);
+    digitalWrite(5, LOW);
+  }
 }
