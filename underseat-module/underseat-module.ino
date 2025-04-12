@@ -35,6 +35,7 @@ struct LumbarStruct {
   byte suppressmessages;
   byte messagecounter;
   unsigned long messagetime;
+  unsigned long desiredpressurenewtime;
 };
 
 struct MassageStruct{
@@ -74,8 +75,8 @@ MassageStruct massage;
 SoftwareSerial softSerial(/*rx =*/6, /*tx =*/7);//ON THE UNO THIS NEEDS TO BE RX 6 AND TX 7
 DFRobotDFPlayerMini myDFPlayer;
 
-int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
-int time2;// for testing 3/28/2025
+unsigned long int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
+unsigned long int time2;// for testing 3/28/2025
 
 byte ignit[4] = {0x00, 0x00, 0xff, 0xff};
 byte hvac[3]= {0x0, 0xC0, 0x0};
@@ -95,7 +96,7 @@ void setup() {
   pinMode(5, OUTPUT);
 
   FPSerial.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(115200);
  
   myDFPlayer.begin(FPSerial, /*isACK = */true, /*doReset = */true);//reset needs to be true for this shit to work on external power
   
@@ -124,6 +125,7 @@ void setup() {
   }
   lumbar.desiredposition = savedlumbarvalues.position;
   lumbar.desiredpressure = savedlumbarvalues.pressure;
+  
 //---------------------------------------------------------------------------------------------------------------------//
   
 }
@@ -232,51 +234,71 @@ void loop() {
       dpad.transition = 0;
     }
 
-    if(dpad.forward){//if forward is pressed on the d pad
+    
 
-      //if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+    if(dpad.forward){//if forward is pressed on the d pad
+      if(millis()-lumbar.desiredpressurenewtime > 4){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
         if(lumbar.desiredpressurenew < 800){//maximum desired pressure of 800
           lumbar.desiredpressurenew++;
         }
-      //}
+        lumbar.desiredpressurenewtime = millis();
+      }
     }
     else if(dpad.back){//if back is pressed on the d pad
 
-      //if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+      if(millis() - lumbar.desiredpressurenewtime >4){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
         if(lumbar.desiredpressurenew > 0){
           lumbar.desiredpressurenew--;
         }
-      //}
+        lumbar.desiredpressurenewtime = millis();
+      }
     }
     
-    if(lumbar.desiredpressurenew == lumbar.desiredpressure && lumbar.desiredpositionnew == lumbar.desiredposition && !lumbar.suppressmessages){//if the desired values are the same as the previous loop
-      if(lumbar.messagecounter == 4){//if fewer than 4? lumbar CAN messages have been sent with these same values
-        lumbar.suppressmessages = 1;// 4 separate CAN messages with the same values have now been sent over a 800 ms period. Don't send any more unless the values change
-        EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;
-        EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
-        Serial.println("Lumbar values saved!");
-      }
-      else{
-        if(millis()-lumbar.messagetime > 200){//if the previous message was sent at least 200 ms ago
-          //send CAN message here of desired lumbar pressure and position
-          lumbar.messagecounter++;
-          lumbar.messagetime = millis();
+    if(lumbar.desiredpressurenew == lumbar.desiredpressure && lumbar.desiredpositionnew == lumbar.desiredposition){//if the desired values are the same as the previous loop
+      if(!lumbar.suppressmessages){
+        if(lumbar.messagecounter == 4){//if fewer than 4? lumbar CAN messages have been sent with these same values
+          lumbar.suppressmessages = 1;// 4 separate CAN messages with the same values have now been sent over a 800 ms period. Don't send any more unless the values change
+          EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;
+          EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
+          Serial.println("Lumbar values saved!~~~~~~~~~~~~~~~~");
         }
-        
+        else{
+          if(millis()-lumbar.messagetime > 150){//if the previous message was sent at least 200 ms ago
+            //send CAN message here of desired lumbar pressure and position
+            lumbar.messagecounter++;
+            lumbar.messagetime = millis();
+          }
+        }
       }
     }
-    else if(!lumbar.suppressmessages){//either desiredpressurenew or desiredpositionnew or both do not match the previous, and suppressmessages is not on
+    else{ //either desired pressurenew or desiredpositionnew do not match the previous values
+      lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change  
+      lumbar.messagecounter = 0; //restart the counter
+      if(millis() - lumbar.messagetime > 150){
+        //send CAN message here of new desired lumbar pressure and position
+        lumbar.messagecounter = 1;
+        lumbar.messagetime = millis();
+      }
+
+    }
+    /*else if(!lumbar.suppressmessages){//either desiredpressurenew or desiredpositionnew or both do not match the previous, and suppressmessages is not on
       if(millis() - lumbar.messagetime > 200){
         //send CAN message here of new desired lumbar pressure and position
         lumbar.messagecounter = 1;
         lumbar.messagetime = millis();
       }
     }
-    else if((lumbar.desiredpressurenew != lumbar.desiredpressure || lumbar.desiredpositionnew != lumbar.desiredposition) && lumbar.suppressmessages){
-      lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change   
+    else if(lumbar.desiredpressurenew != lumbar.desiredpressure || lumbar.desiredpositionnew != lumbar.desiredposition){
+      lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change  
+      lumbar.messagecounter = 0; 
     }
+    */
     lumbar.desiredposition = lumbar.desiredpositionnew;//last step is to set the "old" value to the new value i changed;
     lumbar.desiredpressure = lumbar.desiredpressurenew;
+    
+  }
+  else{
+    lumbar.suppressmessages = 1;//this is done so that lumbar messages of the current value are not sent when switching to lumbar state;
     
   }
 
@@ -292,7 +314,7 @@ void loop() {
 
 
   if(messageplaycount==0){
-    Serial.println(voicestate);
+    
     switch(voicestate){
       
       case 0:{
@@ -328,25 +350,29 @@ void loop() {
 
   time2 = millis();
 
-  //if((time2-time1)>200)
-  //{
-    /*
-  Serial.print(voicestate);
-  Serial.print(" ");
-  Serial.print(truestate);
-  Serial.print(" ");
-  Serial.print(bezelring.transition);
-  Serial.print(" ");
-  Serial.print(massage.on);
-  Serial.print(" ");
+  if((time2-time1)>200)
+  {
+    
+  //Serial.print(voicestate);
+  //Serial.print(" ");
+  //Serial.print(truestate);
+  //Serial.print(" ");
+  //Serial.print(bezelring.transition);
+  //Serial.print(" ");
+  //Serial.print(massage.on);
+  //Serial.print(" ");
   Serial.print(lumbar.desiredpressure);
   Serial.print(" ");
   Serial.print(lumbar.desiredposition);
   Serial.print(" ");
-  Serial.println(lumbartransition);
-  time1 = time2; 
-  */
   Serial.println(millis());
+
+  time1 = time2; 
+  }
+  
+  
+  //*/
+  //Serial.println(millis());
   //}
 
   ///////------------------------------------------------------
