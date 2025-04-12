@@ -136,12 +136,12 @@ if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage butt
 
 if(truestate == 2){
   if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
-    digitalWrite(4, HIGH);//no idea if this is the right pin, but i will find out
-    digitalWrite(5, LOW);
+    digitalWrite(5, HIGH);//no idea if this is the right pin, but i will find out
+    digitalWrite(4, LOW);
   }
   else if(analogRead(D_PAD_UD)<470){//if down is pressed on the d pad
-    digitalWrite(5, HIGH);
-    digitalWrite(4, LOW);
+    digitalWrite(4, HIGH);
+    digitalWrite(5, LOW);
   }
   else{//if neither of these are true, D_PAD_UD must be high, turn off the upper back motor
   digitalWrite(4, LOW);
@@ -211,7 +211,7 @@ if(messageplaycount==0){
 
 time2 = millis();
 
-if((time2-time1)>1000)
+if((time2-time1)>200)
 {
 Serial.print(voicestate);
 Serial.print(" ");
