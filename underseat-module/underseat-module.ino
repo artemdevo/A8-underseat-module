@@ -3,6 +3,7 @@
 #include <SoftwareSerial.h>
 #include <SPI.h>
 #include <mcp_can.h>
+#include <EEPROM.h>
 
 
 #define BTN A0
@@ -22,8 +23,32 @@ byte massageon = 0;
 byte massagetransition = 0;
 unsigned long massagestarttime;
 unsigned long canmessagetime = 0;
+byte lumbartransition;
+
+struct SavedLumbarValues {
+  byte byte0;
+  byte byte1;
+  int pressure;
+  byte position;
+};
+
+struct LumbarStruct {
+  byte on; //on or off
+  int desiredpressure; //the value sent in the CAN message
+  int desiredpressurenew;
+  byte desiredposition; //the value sent in the CAN message
+  byte desiredpositionnew;
+  byte suppressmessages;
+  byte messagecounter;
+  unsigned long messagetime;
+};
+
+LumbarStruct lumbar;
+SavedLumbarValues savedlumbarvalues;
+
 SoftwareSerial softSerial(/*rx =*/6, /*tx =*/7);//ON THE UNO THIS NEEDS TO BE RX 6 AND TX 7
 DFRobotDFPlayerMini myDFPlayer;
+
 int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
 int time2;// for testing 3/28/2025
 
@@ -32,8 +57,10 @@ byte hvac[3]= {0x0, 0xC0, 0x0};
 
 void seatmotoradjust();
 
-
 MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
+
+
+
 
 void setup() {
   // put your setup code here, to run once:
@@ -55,8 +82,24 @@ void setup() {
   CAN0.setMode(MCP_NORMAL);
   
   messageplaycount = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
-  //myDFPlayer.play(1); //this is a "flush" play. waits a second before playing this one, then never again for the remainder of the power cycle
- 
+  
+//--------------------stuff for lumbar saved value--------------------------------------------------------------------//
+  savedlumbarvalues.byte0= EEPROM.read(0);//get the saved lumbar values from eeprom on startup
+  savedlumbarvalues.byte1 = EEPROM.read(1);
+  savedlumbarvalues.pressure = (savedlumbarvalues.byte1 << 8) | savedlumbarvalues.byte0;
+  savedlumbarvalues.position = EEPROM.read(2);
+
+  if(savedlumbarvalues.pressure < 0 || savedlumbarvalues.pressure > 800 || savedlumbarvalues.position > 2){//if the read pressure value is -1 (indicating a value of 0xffff in these two bytes, for EEPROM with no writes, set it to 0)
+                            //NOTE: this only works for atmega based MCUs that use 2 byte ints. also using >800 value if it somehow becomes corrupted 
+    for(int i = 0; i < 3; i++){//0 through 2 because it is also clearing the address for the lumbar bladder state
+      EEPROM.write(i, 0);
+      savedlumbarvalues.pressure = 0;
+      savedlumbarvalues.position = 0;
+    }
+  }
+  lumbar.desiredposition = savedlumbarvalues.position;
+  lumbar.desiredpressure = savedlumbarvalues.pressure;
+//---------------------------------------------------------------------------------------------------------------------//
   
 }
 
@@ -125,6 +168,67 @@ void loop() {
   }
   ////////////----------------------------------------------------------------------------------
 
+  ///////////////------------------------------------------------state 1-lumbar
+
+  if(truestate ==1){
+    lumbar.desiredpositionnew = lumbar.desiredposition; //to start, setting the "new" value equal to the existing one. check it at the end
+    lumbar.desiredpressurenew = lumbar.desiredpressure;
+    if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800 && !lumbartransition){//if up is pressed on the d pad
+      if(lumbar.desiredpositionnew != 2){//if desired lumbar position is already 2, do nothing. do not wrap around
+        lumbar.desiredpositionnew++;//otherwise, increase
+      }
+      lumbartransition = 1;
+    }
+    else if(analogRead(D_PAD_UD)<470 && !lumbartransition){//if down is pressed on the d pad
+      if(lumbar.desiredpositionnew != 0){//if desired lumbar position is already 0, do nothing. do not wrap around
+      lumbar.desiredpositionnew--;//otherwise, decrease
+      }
+      lumbartransition = 1;
+    }
+    else{//if neither of these are true, D_PAD_UD must be high,
+      lumbartransition = 0;
+    }
+
+    if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
+
+      if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+        if(lumbar.desiredpressurenew < 800){//maximum desired pressure of 800
+          lumbar.desiredpressurenew++;
+        }
+      }
+    }
+    else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
+
+      if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+        if(lumbar.desiredpressurenew > 0){
+          lumbar.desiredpressurenew--;
+        }
+      }
+    }
+    
+    if(lumbar.desiredpressurenew == lumbar.desiredpressure && lumbar.desiredpositionnew == lumbar.desiredposition && !lumbar.suppressmessages){//if the desired values are the same as the previous loop
+      if(lumbar.messagecounter < 5){//if fewer than 5? lumbar CAN messages have been sent with these same values
+        if(millis()-lumbar.messagetime > 200){//if the previous message was sent at least 200 ms ago
+          //send CAN message here of desired lumbar pressure and position
+          lumbar.messagecounter++;
+        }
+      }
+      else{
+        lumbar.suppressmessages = 1;// 4 separate CAN messages with the same values have now been sent over a 800 ms period. Don't send any more unless the values change
+        EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;
+        EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
+      }
+    }
+    else{
+      if(millis() - lumbar.messagetime > 200){
+        //send CAN message here of new desired lumbar pressure and position
+        lumbar.messagecounter = 1;
+      }
+    }
+
+
+  }
+
   ////////////////////---------------------------------------------------when in state 2? can control motors
   
   seatmotoradjust();
@@ -181,9 +285,9 @@ void loop() {
   Serial.print(" ");
   Serial.print(massageon);
   Serial.print(" ");
-  Serial.print(massagetransition);
+  Serial.print(lumbar.desiredpressure);
   Serial.print(" ");
-  Serial.println(millis()-massagestarttime);
+  Serial.println(lumbar.desiredposition);
   time1 = time2; 
   //}
 
