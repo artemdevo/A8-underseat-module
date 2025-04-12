@@ -171,39 +171,41 @@ void loop() {
   ///////////////------------------------------------------------state 1-lumbar
 
   if(truestate ==1){
-    lumbar.desiredpositionnew = lumbar.desiredposition; //to start, setting the "new" value equal to the existing one. check it at the end
+    lumbar.desiredpositionnew = lumbar.desiredposition; //to start, setting the "new" value equal to the existing one. check it at the end. this is needed for the first run of this loop
     lumbar.desiredpressurenew = lumbar.desiredpressure;
     if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800 && !lumbartransition){//if up is pressed on the d pad
       if(lumbar.desiredpositionnew != 2){//if desired lumbar position is already 2, do nothing. do not wrap around
         lumbar.desiredpositionnew++;//otherwise, increase
       }
       lumbartransition = 1;
+      //Serial.println("Up pressed!");
     }
     else if(analogRead(D_PAD_UD)<470 && !lumbartransition){//if down is pressed on the d pad
       if(lumbar.desiredpositionnew != 0){//if desired lumbar position is already 0, do nothing. do not wrap around
       lumbar.desiredpositionnew--;//otherwise, decrease
       }
       lumbartransition = 1;
+      //Serial.println("Down pressed!");
     }
-    else{//if neither of these are true, D_PAD_UD must be high,
+    else if(analogRead(D_PAD_UD) > 900){
       lumbartransition = 0;
     }
 
     if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
 
-      if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+      //if(millis()%10 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
         if(lumbar.desiredpressurenew < 800){//maximum desired pressure of 800
           lumbar.desiredpressurenew++;
         }
-      }
+      //}
     }
     else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
 
-      if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+      //if(millis()%10 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
         if(lumbar.desiredpressurenew > 0){
           lumbar.desiredpressurenew--;
         }
-      }
+      ///}
     }
     
     if(lumbar.desiredpressurenew == lumbar.desiredpressure && lumbar.desiredpositionnew == lumbar.desiredposition && !lumbar.suppressmessages){//if the desired values are the same as the previous loop
@@ -211,6 +213,7 @@ void loop() {
         lumbar.suppressmessages = 1;// 4 separate CAN messages with the same values have now been sent over a 800 ms period. Don't send any more unless the values change
         EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;
         EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
+        Serial.println("Lumbarvaluessaved!");
       }
       else{
         if(millis()-lumbar.messagetime > 200){//if the previous message was sent at least 200 ms ago
@@ -231,8 +234,12 @@ void loop() {
     else if((lumbar.desiredpressurenew != lumbar.desiredpressure || lumbar.desiredpositionnew != lumbar.desiredposition) && lumbar.suppressmessages){
       lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change   
     }
-    
+    lumbar.desiredposition = lumbar.desiredpositionnew;//last step is to set the "old" value to the new value i changed 
+    lumbar.desiredpressure = lumbar.desiredpressurenew; 
+
   }
+
+
 
   ////////////////////---------------------------------------------------when in state 2? can control motors
   
@@ -282,6 +289,7 @@ void loop() {
 
   //if((time2-time1)>200)
   //{
+    /*
   Serial.print(voicestate);
   Serial.print(" ");
   Serial.print(truestate);
@@ -292,8 +300,12 @@ void loop() {
   Serial.print(" ");
   Serial.print(lumbar.desiredpressure);
   Serial.print(" ");
-  Serial.println(lumbar.desiredposition);
+  Serial.print(lumbar.desiredposition);
+  Serial.print(" ");
+  Serial.println(lumbartransition);
   time1 = time2; 
+  */
+  Serial.println(millis());
   //}
 
   ///////------------------------------------------------------
