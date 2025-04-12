@@ -214,7 +214,7 @@ void loop() {
   ///////////////------------------------------------------------state 1-lumbar
 
   if(truestate ==1){
-    lumbar.desiredpositionnew = lumbar.desiredposition; //to start, setting the "new" value equal to the existing one. check it at the end
+    lumbar.desiredpositionnew = lumbar.desiredposition; //to start, setting the "new" value equal to the existing one. check it at the end. this is needed for the first run of this loop
     lumbar.desiredpressurenew = lumbar.desiredpressure;
     if(dpad.up && !dpad.transition){//if up is pressed on the d pad
       if(lumbar.desiredpositionnew != 2){//if desired lumbar position is already 2, do nothing. do not wrap around
@@ -280,6 +280,8 @@ void loop() {
     
   }
 
+
+
   ////////////////////---------------------------------------------------when in state 2? can control motors
   
   seatmotoradjust();
@@ -328,6 +330,7 @@ void loop() {
 
   //if((time2-time1)>200)
   //{
+    /*
   Serial.print(voicestate);
   Serial.print(" ");
   Serial.print(truestate);
@@ -338,8 +341,12 @@ void loop() {
   Serial.print(" ");
   Serial.print(lumbar.desiredpressure);
   Serial.print(" ");
-  Serial.println(lumbar.desiredposition);
+  Serial.print(lumbar.desiredposition);
+  Serial.print(" ");
+  Serial.println(lumbartransition);
   time1 = time2; 
+  */
+  Serial.println(millis());
   //}
 
   ///////------------------------------------------------------
