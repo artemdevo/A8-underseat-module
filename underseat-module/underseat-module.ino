@@ -207,26 +207,31 @@ void loop() {
     }
     
     if(lumbar.desiredpressurenew == lumbar.desiredpressure && lumbar.desiredpositionnew == lumbar.desiredposition && !lumbar.suppressmessages){//if the desired values are the same as the previous loop
-      if(lumbar.messagecounter < 5){//if fewer than 5? lumbar CAN messages have been sent with these same values
-        if(millis()-lumbar.messagetime > 200){//if the previous message was sent at least 200 ms ago
-          //send CAN message here of desired lumbar pressure and position
-          lumbar.messagecounter++;
-        }
-      }
-      else{
+      if(lumbar.messagecounter == 4){//if fewer than 4? lumbar CAN messages have been sent with these same values
         lumbar.suppressmessages = 1;// 4 separate CAN messages with the same values have now been sent over a 800 ms period. Don't send any more unless the values change
         EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;
         EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
       }
+      else{
+        if(millis()-lumbar.messagetime > 200){//if the previous message was sent at least 200 ms ago
+          //send CAN message here of desired lumbar pressure and position
+          lumbar.messagecounter++;
+          lumbar.messagetime = millis();
+        }
+        
+      }
     }
-    else{
+    else if(!lumbar.suppressmessages){//either desiredpressurenew or desiredpositionnew or both do not match the previous, and suppressmessages is not on
       if(millis() - lumbar.messagetime > 200){
         //send CAN message here of new desired lumbar pressure and position
         lumbar.messagecounter = 1;
+        lumbar.messagetime = millis();
       }
     }
-
-
+    else if((lumbar.desiredpressurenew != lumbar.desiredpressure || lumbar.desiredpositionnew != lumbar.desiredposition) && lumbar.suppressmessages){
+      lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change   
+    }
+    
   }
 
   ////////////////////---------------------------------------------------when in state 2? can control motors
