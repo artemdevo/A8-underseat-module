@@ -15,15 +15,9 @@
 
 byte voicestate = 0; //use this just for voice messages
 byte truestate = 0;
-
-byte bezeltransition; 
-
 byte messageplaycount;
-byte massageon = 0;
-byte massagetransition = 0;
-unsigned long massagestarttime;
 unsigned long canmessagetime = 0;
-byte lumbartransition;
+
 
 struct SavedLumbarValues {
   byte byte0;
@@ -43,8 +37,39 @@ struct LumbarStruct {
   unsigned long messagetime;
 };
 
+struct MassageStruct{
+  unsigned long starttime;
+  byte on = 0;
+  byte transition = 0;
+  byte btnpressed;
+  byte btnreleased;
+  int btn_read;
+};
+
+struct BezelStruct{
+  byte up;
+  byte down;
+  byte released;
+  byte transition;
+  int read; 
+};
+
+struct DPadStruct{
+  byte up;
+  byte down;
+  byte forward;
+  byte back;
+  byte transition;
+  byte ud_released;
+  int fb_read;
+  int ud_read;
+};
+
+BezelStruct bezelring;
+DPadStruct dpad;
 LumbarStruct lumbar;
 SavedLumbarValues savedlumbarvalues;
+MassageStruct massage;
 
 SoftwareSerial softSerial(/*rx =*/6, /*tx =*/7);//ON THE UNO THIS NEEDS TO BE RX 6 AND TX 7
 DFRobotDFPlayerMini myDFPlayer;
@@ -104,53 +129,71 @@ void setup() {
 }
 
 void loop() {
+  bezelring.read = analogRead(BEZ_RNG);
+  massage.btn_read = analogRead(BTN);
+  dpad.fb_read = analogRead(D_PAD_FB);
+  dpad.ud_read = analogRead(D_PAD_UD);
+
+  bezelring.up = bezelring.read>470 && bezelring.read<800;
+  bezelring.down = bezelring.read<470;
+  bezelring.released = bezelring.read>900;
+
+  massage.btnpressed = massage.btn_read<500;
+  massage.btnreleased = massage.btn_read>700;
+
+  dpad.forward = dpad.fb_read>470 && dpad.fb_read<800;
+  dpad.back = dpad.fb_read<470;
+  dpad.up = dpad.ud_read>470 && dpad.ud_read<800;
+  dpad.down = dpad.ud_read<470;
+  dpad.ud_released = dpad.ud_read>900;
   
+
 ////---------------------------------------------------------------------------------------------------going up when press up on the bezel ring
-  if(analogRead(BEZ_RNG)>470 && analogRead(BEZ_RNG)<800 && !bezeltransition){//if up on the bezel ring is pressed, increase state by 1 
+  if(bezelring.up && !bezelring.transition){//if up on the bezel ring is pressed, increase state by 1 
     if(voicestate == MAX_STATE){
       voicestate = 0; //if at maximum state, go back to 0
     }
     else{
     voicestate++; //play voice message for whatever state you just changed to, probably make it a switch case?
     }
-    bezeltransition = 1;
+    bezelring.transition = 1;
     messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played 
   }
   
   /////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
-  if(analogRead(BEZ_RNG)<470 && !bezeltransition){//if down on the bezel ring is pressed, decrease state by 1 
+  else if(bezelring.down && !bezelring.transition){//if down on the bezel ring is pressed, decrease state by 1 
     if(voicestate == 0){
       voicestate = MAX_STATE; //if at 0 state, loop back around to highest state
     }
     else{
     voicestate--; //play voice message for whatever state you just changed to, probably make it a switch case?
     }; 
-    bezeltransition = 1; //prep for the state transition
+    bezelring.transition = 1; //prep for the state transition
     //make sure transitionup is off
     messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played
   }
 
 
-  if(analogRead(BEZ_RNG)>900){
+  else if(bezelring.released){
     truestate = voicestate;
-    bezeltransition = 0;
+    bezelring.transition = 0;
    
   }
   //////--------------------------------------------------------------------------------------------------------
 
   ////////-----------------------------------------------------------------------------massage button and massage function stuff. adjustments to the massage will be done in a state
-  if(analogRead(BTN)<500 && !massagetransition){
-    if(massageon){//if button is pressed with massage on
-      massageon = 0;
-      massagetransition = 1;
+  if(massage.btnpressed && !massage.transition){
+    if(massage.on){//if button is pressed with massage on
+      massage.on = 0;
+      massage.transition = 1;
     }
-    else if(!massageon){//start the massage when button pressed measure time start
-      massageon = 1;
-      massagetransition = 1;
-      massagestarttime = millis();
+    else if(!massage.on){//start the massage when button pressed measure time start
+      massage.on = 1;
+      massage.transition = 1;
+      massage.starttime = millis();
     }
   }
-  if(massageon){//turn massage off if 10 minutes have elapsed
+  if(massage.on){//turn massage off if 10 minutes have elapsed
     if((millis()-canmessagetime) > 200){//if more than 150 ms have elapsed, send CAN message
 
       //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit); placeholder, need to figure out messageframe 
@@ -158,13 +201,13 @@ void loop() {
       CAN0.sendMsgBuf(0x664, 0, 3, hvac);
       canmessagetime = millis();
     }
-    if((millis()-massagestarttime)>(1000L*60L*10L)){//60*10 seconds
-      massageon = 0;
+    if((millis()-massage.starttime)>(1000L*60L*10L)){//60*10 seconds
+      massage.on = 0;
     }
   }
 
-  if(analogRead(BTN)>700 && massagetransition){//if you let go of the massage button, return massagetransition to value 0
-    massagetransition = 0;
+  if(massage.btnreleased && massage.transition){//if you let go of the massage button, return massagetransition to value 0
+    massage.transition = 0;
   }
   ////////////----------------------------------------------------------------------------------
 
@@ -173,37 +216,37 @@ void loop() {
   if(truestate ==1){
     lumbar.desiredpositionnew = lumbar.desiredposition; //to start, setting the "new" value equal to the existing one. check it at the end
     lumbar.desiredpressurenew = lumbar.desiredpressure;
-    if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800 && !lumbartransition){//if up is pressed on the d pad
+    if(dpad.up && !dpad.transition){//if up is pressed on the d pad
       if(lumbar.desiredpositionnew != 2){//if desired lumbar position is already 2, do nothing. do not wrap around
         lumbar.desiredpositionnew++;//otherwise, increase
       }
-      lumbartransition = 1;
+      dpad.transition = 1;
     }
-    else if(analogRead(D_PAD_UD)<470 && !lumbartransition){//if down is pressed on the d pad
+    else if(dpad.down && !dpad.transition){//if down is pressed on the d pad
       if(lumbar.desiredpositionnew != 0){//if desired lumbar position is already 0, do nothing. do not wrap around
       lumbar.desiredpositionnew--;//otherwise, decrease
       }
-      lumbartransition = 1;
+      dpad.transition = 1;
     }
-    else{//if neither of these are true, D_PAD_UD must be high,
-      lumbartransition = 0;
+    else if(dpad.ud_released){//if neither of these are true, D_PAD_UD must be high,
+      dpad.transition = 0;
     }
 
-    if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
+    if(dpad.forward){//if forward is pressed on the d pad
 
-      if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+      //if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
         if(lumbar.desiredpressurenew < 800){//maximum desired pressure of 800
           lumbar.desiredpressurenew++;
         }
-      }
+      //}
     }
-    else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
+    else if(dpad.back){//if back is pressed on the d pad
 
-      if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
+      //if(millis()%30 == 1){//stupid way to slow down how fast the desired pressure rises; CHECK THIS WITH SERIAL PRINT
         if(lumbar.desiredpressurenew > 0){
           lumbar.desiredpressurenew--;
         }
-      }
+      //}
     }
     
     if(lumbar.desiredpressurenew == lumbar.desiredpressure && lumbar.desiredpositionnew == lumbar.desiredposition && !lumbar.suppressmessages){//if the desired values are the same as the previous loop
@@ -211,6 +254,7 @@ void loop() {
         lumbar.suppressmessages = 1;// 4 separate CAN messages with the same values have now been sent over a 800 ms period. Don't send any more unless the values change
         EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;
         EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
+        Serial.println("Lumbar values saved!");
       }
       else{
         if(millis()-lumbar.messagetime > 200){//if the previous message was sent at least 200 ms ago
@@ -231,6 +275,8 @@ void loop() {
     else if((lumbar.desiredpressurenew != lumbar.desiredpressure || lumbar.desiredpositionnew != lumbar.desiredposition) && lumbar.suppressmessages){
       lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change   
     }
+    lumbar.desiredposition = lumbar.desiredpositionnew;//last step is to set the "old" value to the new value i changed;
+    lumbar.desiredpressure = lumbar.desiredpressurenew;
     
   }
 
@@ -286,9 +332,9 @@ void loop() {
   Serial.print(" ");
   Serial.print(truestate);
   Serial.print(" ");
-  Serial.print(bezeltransition);
+  Serial.print(bezelring.transition);
   Serial.print(" ");
-  Serial.print(massageon);
+  Serial.print(massage.on);
   Serial.print(" ");
   Serial.print(lumbar.desiredpressure);
   Serial.print(" ");
@@ -303,11 +349,11 @@ void loop() {
 
 void seatmotoradjust(){
   if(truestate == 2){
-    if(analogRead(D_PAD_UD)>470 && analogRead(D_PAD_UD)<800){//if up is pressed on the d pad
+    if(dpad.up){//if up is pressed on the d pad
       digitalWrite(5, HIGH);//no idea if this is the right pin, but i will find out
       digitalWrite(4, LOW);
     }
-    else if(analogRead(D_PAD_UD)<470){//if down is pressed on the d pad
+    else if(dpad.down){//if down is pressed on the d pad
       digitalWrite(4, HIGH);
       digitalWrite(5, LOW);
     }
@@ -317,11 +363,11 @@ void seatmotoradjust(){
     }
     // -     -       -    -        -     -        -     -         -      -        -
 
-    if(analogRead(D_PAD_FB)>470 && analogRead(D_PAD_FB)<800){//if forward is pressed on the d pad
+    if(dpad.forward){//if forward is pressed on the d pad
       digitalWrite(2, HIGH);//no idea if this is the right pin, but i will find out
       digitalWrite(3, LOW);
     }
-    else if(analogRead(D_PAD_FB)<470){//if back is pressed on the d pad
+    else if(dpad.back){//if back is pressed on the d pad
       digitalWrite(3, HIGH);
       digitalWrite(2, LOW);
     }
