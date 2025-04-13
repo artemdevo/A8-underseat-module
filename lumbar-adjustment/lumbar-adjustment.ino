@@ -22,6 +22,8 @@ byte len = 0;
 byte rxBuf[8];
 char msgString[128];                        // Array to store serial string
 
+
+
 struct SavedLumbarValues {
   byte byte0;
   byte byte1;
@@ -41,8 +43,9 @@ int observedpressure;
 //byte pressurechange;
 //byte positionchange;
 //byte pressurereached;
-int exitcounterstarttime;
-byte exitcounterbegin;
+long int exitcounterstarttime;
+byte exitcounterstarted;
+byte exitenable;
 
 LumbarStruct lumbar;
 SavedLumbarValues savedlumbarvalues;
@@ -99,107 +102,126 @@ void loop() {
       Serial.println(lumbar.desiredposition);
 
     }
-    if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
-      //lumbar.desiredpressure and lumbar.desiredposition come from the CAN message
-      
-      switch(lumbar.desiredposition){
-        case 0:{//if the desired position is 0, the bottom lumbar bladder is switched on, others vented
-          digitalWrite(LOW_LUMBAR_BLD, HIGH);
-          digitalWrite(MID_LUMBAR_VNT, HIGH);
-          digitalWrite(HIGH_LUMBAR_VNT, HIGH);
-        }
-        break;
-        case 1:{//if the desired position is 1, the middle lumbar bladder is switched on, others vented
-          digitalWrite(MID_LUMBAR_BLD, HIGH);
-          digitalWrite(HIGH_LUMBAR_VNT, HIGH);
-          digitalWrite(LOW_LUMBAR_VNT, HIGH);
-        }
-        break;
-        case 2:{//if the desired position is 2, the top lumbar bladder is switched on, others vented
-          digitalWrite(HIGH_LUMBAR_BLD, HIGH);
-          digitalWrite(LOW_LUMBAR_VNT, HIGH);
-          digitalWrite(MID_LUMBAR_VNT, HIGH);
-        }
-        break;
-      }
-      
-      observedpressure = analogRead(PRES);
-
-      if(abs(observedpressure - lumbar.desiredpressure) < 30){//if within 30 of the target pressure, start the exitcounter
-                                                          //adding hysteresis with the 30 to avoid compressor jitter
-        if(!exitcounterbegin){//if this is the first time through this if statement since this pressure condition has been true, 
-          exitcounterstarttime = millis(); //if the reservoir is at the desired pressure, that means the lumbar bladder must be close as well, so start a counter
-          exitcounterbegin = 1;
-        }
-        
-      }
-      else if(observedpressure - lumbar.desiredpressure >= 0){//if the reservoir pressure is more than 30 greater than desired, turn comp off
-                                                          //adding hysteresis with the 30 to avoid compressor jitter
-        digitalWrite(COMP, LOW);
-
-        exitcounterbegin = 0; //reset exitcounterbegin, since the pressure was outside bounds
-      }
-      else if(observedpressure - lumbar.desiredpressure <= -30){//if the reservoir pressure is more than 30 less than desired, turn comp on
-                                                          //adding hysteresis with the 30 to avoid compressor jitter
-        digitalWrite(COMP, HIGH);
-        exitcounterbegin = 0;
-      }
-
-      if(observedpressure - lumbar.desiredpressure >= 30){ //turn the specific bladder vent on if the pressure is more than 30 higher 
-
-        switch(lumbar.desiredposition){
-          case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
-          digitalWrite(LOW_LUMBAR_VNT, HIGH);
-          }
-          break;
-          case 1:{//if the desired position is 1, middle vent used
-          digitalWrite(MID_LUMBAR_VNT, HIGH);
-          }
-          break;
-          case 2:{//if the desired position is 2, top vent used
-          digitalWrite(HIGH_LUMBAR_VNT, HIGH);
-          }
-          break;
-        }
-        Serial.println("opening vent");
-      }
-      else if (observedpressure - lumbar.desiredpressure <= 0){ //if the pressure is more than 0 less than the desired
-        switch(lumbar.desiredposition){
-          case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
-          digitalWrite(LOW_LUMBAR_VNT, LOW);
-          }
-          break;
-          case 1:{//if the desired position is 1, middle vent used
-          digitalWrite(MID_LUMBAR_VNT, LOW);
-          }
-          break;
-          case 2:{//if the desired position is 2, top vent used
-          digitalWrite(HIGH_LUMBAR_VNT, LOW);
-          }
-          break;
-        }
-          Serial.println("closing vent");
-      } 
-
-      if(millis()-exitcounterstarttime > 3000 && exitcounterbegin){//if more than 5 seconds have elapsed with the real pressure within +/- 30 of the desired
-        lumbar.on = 0;
-        exitcounterbegin = 0;
-        
-        //EEPROM.put(0, lumbar.desiredpressure);//write the desired pressure to saved addresses;don't need this anymore
-        //EEPROM.put(2, lumbar.desiredposition);//write the desired position to saved address;
-      }
-      
-    }
-    else if(!lumbar.on){
-      for(int i = 0; i < 8; i++){
-        digitalWrite(lumbarpins[i], LOW);
-      }
-    }
-    
-    Serial.println(observedpressure);
-    //Serial.println(exitcounterbegin);
-    
-    //Serial.println(millis() - exitcounterstarttime);
-  
   }
+  if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
+    //lumbar.desiredpressure and lumbar.desiredposition come from the CAN message
+    
+    switch(lumbar.desiredposition){
+      case 0:{//if the desired position is 0, the bottom lumbar bladder is switched on, others vented
+        digitalWrite(LOW_LUMBAR_BLD, HIGH);
+        digitalWrite(MID_LUMBAR_VNT, HIGH);
+        digitalWrite(HIGH_LUMBAR_VNT, HIGH);
+      }
+      break;
+      case 1:{//if the desired position is 1, the middle lumbar bladder is switched on, others vented
+        digitalWrite(MID_LUMBAR_BLD, HIGH);
+        digitalWrite(HIGH_LUMBAR_VNT, HIGH);
+        digitalWrite(LOW_LUMBAR_VNT, HIGH);
+      }
+      break;
+      case 2:{//if the desired position is 2, the top lumbar bladder is switched on, others vented
+        digitalWrite(HIGH_LUMBAR_BLD, HIGH);
+        digitalWrite(LOW_LUMBAR_VNT, HIGH);
+        digitalWrite(MID_LUMBAR_VNT, HIGH);
+      }
+      break;
+    }
+    
+    observedpressure = analogRead(PRES);
+    
+    
+
+    if(abs(observedpressure - lumbar.desiredpressure) < 50){//if within 50 of the target pressure, start the exitcounter
+                                                        //adding hysteresis with the 50 to avoid compressor jitter
+      if(!exitcounterstarted){//if this is the first time through this if statement since this pressure condition has been true, 
+        exitcounterstarttime = millis(); //if the reservoir is at the desired pressure, that means the lumbar bladder must be close as well, so start a counter
+        exitcounterstarted = 1;//so we don't refresh exitcountertime
+        exitenable = 1;
+        Serial.println("is the exit start time being refreshed?");
+      }
+      
+    }
+    else{
+      exitcounterstarted = 0;
+      exitenable = 0;
+    }
+
+    if(observedpressure - lumbar.desiredpressure >= 0){//if the reservoir pressure is more than 0 over desired, turn comp off
+                                                        //adding hysteresis with the 30 to avoid compressor jitter
+      digitalWrite(COMP, LOW);
+
+      
+      
+    }
+    else if(observedpressure - lumbar.desiredpressure <= -50){//if the reservoir pressure is more than 50 less than desired, turn comp on
+                                                        //adding hysteresis with the 30 to avoid compressor jitter
+      digitalWrite(COMP, HIGH);
+      
+      
+    }
+
+    if(observedpressure - lumbar.desiredpressure >= 50){ //turn the specific bladder vent on if the pressure is more than 30 higher 
+
+      switch(lumbar.desiredposition){
+        case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
+        digitalWrite(LOW_LUMBAR_VNT, HIGH);
+        }
+        break;
+        case 1:{//if the desired position is 1, middle vent used
+        digitalWrite(MID_LUMBAR_VNT, HIGH);
+        }
+        break;
+        case 2:{//if the desired position is 2, top vent used
+        digitalWrite(HIGH_LUMBAR_VNT, HIGH);
+        }
+        break;
+      }
+      Serial.println("opening vent");
+    }
+    else if (observedpressure - lumbar.desiredpressure <= 0){ //if the pressure is more than 0 less than the desired
+      switch(lumbar.desiredposition){
+        case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
+        digitalWrite(LOW_LUMBAR_VNT, LOW);
+        }
+        break;
+        case 1:{//if the desired position is 1, middle vent used
+        digitalWrite(MID_LUMBAR_VNT, LOW);
+        }
+        break;
+        case 2:{//if the desired position is 2, top vent used
+        digitalWrite(HIGH_LUMBAR_VNT, LOW);
+        }
+        break;
+      }
+        Serial.println("closing vent");
+    } 
+
+    if(exitenable){//if more than 2 seconds have elapsed with the real pressure within +/- 50 of the desired
+      if (millis()-exitcounterstarttime > 2000){//if current time minus the start of the exit counter exceeds 2000 ms
+        lumbar.on = 0;
+        exitcounterstarted = 0;
+        exitenable = 0;
+      
+      }
+    }
+    
+  }
+  else if(!lumbar.on){
+    Serial.println("lumbar off!~~~~~~~~~~~~~~~~~");
+    for(int i = 0; i < 8; i++){
+      digitalWrite(lumbarpins[i], LOW);
+      
+    }
+  }
+  Serial.print(observedpressure);
+  Serial.print(" ");
+  Serial.print(lumbar.desiredpressure);
+  Serial.print(" ");
+  Serial.print(exitcounterstarted);
+  Serial.print(" ");
+  Serial.print(lumbar.on);
+  Serial.print(" ");
+  Serial.println(millis()-exitcounterstarttime);
+    //Serial.println(exitcounterstarted);
+  //Serial.println(millis() - exitcounterstarttime);
 }
