@@ -265,7 +265,7 @@ void loop() {
         }
         else{
           if(millis()-lumbar.messagetime > 150){//if the previous message was sent at least 200 ms ago
-            lumbardata[0] = (lumbar.desiredpressurenew >> 8) & 0xFF; //larger byte of pressure int
+            lumbardata[0] = (lumbar.desiredpressurenew >> 8) & 0xFF; //larger byte of pressure int. little endian, i guess
             lumbardata[1] = lumbar.desiredpressurenew & 0xFF;
             lumbardata[2] = lumbar.desiredpositionnew;
             CAN0.sendMsgBuf(0x707, 0, 3, lumbardata);//send CAN message here of desired lumbar pressure and position
@@ -279,7 +279,7 @@ void loop() {
       lumbar.suppressmessages = 0; //unsuppress CAN messages if desired position or pressure are found to change  
       lumbar.messagecounter = 0; //restart the counter
       if(millis() - lumbar.messagetime > 150){
-        lumbardata[0] = (lumbar.desiredpressurenew >> 8) & 0xFF; //larger byte of pressure int
+        lumbardata[0] = (lumbar.desiredpressurenew >> 8) & 0xFF; //larger byte of pressure int. little endian
         lumbardata[1] = lumbar.desiredpressurenew & 0xFF;
         lumbardata[2] = lumbar.desiredpositionnew;
         CAN0.sendMsgBuf(0x707, 0, 3, lumbardata);//send CAN message here of desired lumbar pressure and position
