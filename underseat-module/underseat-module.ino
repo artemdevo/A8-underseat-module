@@ -364,10 +364,11 @@ void loop() {
   //Serial.print(" ");
   //Serial.print(lumbar.desiredposition);
   //Serial.print(" ");
+  }
   //Serial.println(millis());
 
   time1 = time2; 
-  }
+  
   
   
   //*/
