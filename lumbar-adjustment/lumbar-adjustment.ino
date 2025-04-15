@@ -106,12 +106,12 @@ void setup() {
 }
 
 void loop() {
-  observedpressure = analogRead(PRES);
+  observedpressure = analogRead(PRES); //do the pressure read first (will be useful for the other functions and stuff)
 
   if(!digitalRead(CAN0_INT)){                         // If CAN0_INT pin is low, read receive buffer
     CAN0.readMsgBuf(&rxId, &len, rxBuf);      // Read data: len = data length, buf = data byte(s)
     if(rxId == 0x707){//if the newest received frame has an id of 0x707 (lumbar adjustment)
-      lumbar.on = 1;//start lumbar
+      //lumbar.on = 1;//start lumbar
 
       lumbar.positionup = rxBuf[0];
       lumbar.positiondown = rxBuf[1];
@@ -123,8 +123,10 @@ void loop() {
     if(lumbar.desiredposition < 2){
       lumbar.desiredposition++;
       lumbar.bladderchange = 1;
+      
     }
     lumbar.dpadpositiontransition = 1;
+    //Serial.println(lumbar.desiredposition);
   }
   else if(lumbar.positiondown && !lumbar.dpadpositiontransition){
     if(lumbar.desiredposition> 0){
@@ -132,6 +134,7 @@ void loop() {
       lumbar.bladderchange = 1;
     }
     lumbar.dpadpositiontransition = 1;
+    //Serial.println(lumbar.desiredposition);
   }
 
   if(!lumbar.positionup && !lumbar.positiondown){//if neither up or down are being pressed on the dpad
@@ -141,6 +144,10 @@ void loop() {
   if(lumbar.pressureup || lumbar.pressuredown){
     lumbar.bladderchange = 0;//set bladder change to 0 if pressure is commanded to change. this is an easy way to override a bladder change in progress
   }
+
+  if(lumbar.pressureup || lumbar.pressuredown || lumbar.positionup || lumbar.positiondown){
+    lumbar.on = 1;
+  }
   
 
   if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
@@ -149,17 +156,23 @@ void loop() {
     switch(lumbar.desiredposition){
       case 0:{//if the desired position is 0, the bottom lumbar bladder is switched on, others vented
         digitalWrite(LOW_LUMBAR_BLD, HIGH);
+        digitalWrite(MID_LUMBAR_BLD, LOW);
+        digitalWrite(HIGH_LUMBAR_BLD, LOW);
         digitalWrite(MID_LUMBAR_VNT, HIGH);
         digitalWrite(HIGH_LUMBAR_VNT, HIGH);
       }
       break;
       case 1:{//if the desired position is 1, the middle lumbar bladder is switched on, others vented
+        digitalWrite(LOW_LUMBAR_BLD, LOW);
         digitalWrite(MID_LUMBAR_BLD, HIGH);
+        digitalWrite(HIGH_LUMBAR_BLD, LOW);
         digitalWrite(HIGH_LUMBAR_VNT, HIGH);
         digitalWrite(LOW_LUMBAR_VNT, HIGH);
       }
       break;
       case 2:{//if the desired position is 2, the top lumbar bladder is switched on, others vented
+        digitalWrite(LOW_LUMBAR_BLD, LOW);
+        digitalWrite(MID_LUMBAR_BLD, LOW);
         digitalWrite(HIGH_LUMBAR_BLD, HIGH);
         digitalWrite(LOW_LUMBAR_VNT, HIGH);
         digitalWrite(MID_LUMBAR_VNT, HIGH);
@@ -226,6 +239,7 @@ void loop() {
         if (millis()-bladder.exitcounterstarttime > 2000){//if current time minus the start of the exit counter exceeds 2000 ms
           lumbar.bladderchange= 0;
           bladder.exitcounterstarted = 0;
+          lumbar.on = 0;
           EEPROM.put(2, lumbar.desiredposition);//write the desired bladder position to saved address;
           Serial.println("Bladder position saved to eeprom!");
           //exitenable = 0;
@@ -236,37 +250,59 @@ void loop() {
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     /////~~~~~~~~~~~~~~~~~~~~~~~~~~~CODE FOR PRESSURE ADJUSTMENT AND SAVING VALUE TO EEPROM
-    if(observedpressure > 800){
-      digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 800;
-    }
-    
-    if(lumbar.pressureup && observedpressure < 750){
-      digitalWrite(COMP, HIGH);//turn comp on if measured pressure is below 750 and pressure increase is commanded high
-    }
-    else if(lumbar.pressuredown){
-      switch(lumbar.desiredposition){
-        case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
-        digitalWrite(LOW_LUMBAR_VNT, HIGH);
-        }
-        break;
-        case 1:{//if the desired position is 1, middle vent used
-        digitalWrite(MID_LUMBAR_VNT, HIGH);
-        }
-        break;
-        case 2:{//if the desired position is 2, top vent used
-        digitalWrite(HIGH_LUMBAR_VNT, HIGH);
-        }
-        break;
+    if(!lumbar.bladderchange){//if we aren't doing a bladder change, it must be a pressure change 
+      if(observedpressure > 800 || !lumbar.pressureup){
+        digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 800 or if lumbar.pressureup is not high;
       }
-    }
-    if(lumbar.pressureup || lumbar.pressuredown){
-      lumbar.pressuresavetimer = millis();
-      lumbar.pressuresavetimersuppress = 0; //
-    }
-    if(millis() - lumbar.pressuresavetimer > 1000 && !lumbar.pressuresavetimersuppress){
-      EEPROM.put(0, observedpressure);
-      lumbar.pressuresavetimersuppress = 1;
-      Serial.println("Saving pressure value to EEPROM!");
+      
+      else if(lumbar.pressureup && observedpressure < 750){
+        digitalWrite(COMP, HIGH);//turn comp on if measured pressure is below 750 and pressure increase is commanded high
+      }
+      
+      
+      if(lumbar.pressuredown){
+        switch(lumbar.desiredposition){
+          case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
+          digitalWrite(LOW_LUMBAR_VNT, HIGH);
+          }
+          break;
+          case 1:{//if the desired position is 1, middle vent used
+          digitalWrite(MID_LUMBAR_VNT, HIGH);
+          }
+          break;
+          case 2:{//if the desired position is 2, top vent used
+          digitalWrite(HIGH_LUMBAR_VNT, HIGH);
+          }
+          break;
+        }
+      }
+      else{
+        switch(lumbar.desiredposition){//if there is no command to drop pressure, vent the current solenoid 
+          case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
+          digitalWrite(LOW_LUMBAR_VNT, LOW);
+          }
+          break;
+          case 1:{//if the desired position is 1, middle vent used
+          digitalWrite(MID_LUMBAR_VNT, LOW);
+          }
+          break;
+          case 2:{//if the desired position is 2, top vent used
+          digitalWrite(HIGH_LUMBAR_VNT, LOW);
+          }
+          break;
+        }
+      }
+      if(lumbar.pressureup || lumbar.pressuredown){
+        lumbar.pressuresavetimer = millis();
+        lumbar.pressuresavetimersuppress = 0; //
+      }
+      if(millis() - lumbar.pressuresavetimer > 500 && !lumbar.pressuresavetimersuppress){
+        EEPROM.put(0, observedpressure);
+        lumbar.desiredpressure = observedpressure;
+        lumbar.pressuresavetimersuppress = 1;
+        lumbar.on = 0;
+        Serial.println("Saving pressure value to EEPROM!");
+      }
     }
     ////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
     
@@ -282,11 +318,15 @@ void loop() {
   Serial.print(" ");
   Serial.print(lumbar.desiredpressure);
   Serial.print(" ");
+  Serial.print(lumbar.desiredposition);
+   Serial.print(" ");
   Serial.print(bladder.exitcounterstarted);
   Serial.print(" ");
-  Serial.print(lumbar.on);
+  Serial.print(millis()-bladder.exitcounterstarttime);
   Serial.print(" ");
-  Serial.println(millis()-bladder.exitcounterstarttime);
+  Serial.print(lumbar.bladderchange);
+  Serial.println(" ");
+  //Serial.println(lumbar.pressuredown);
     //Serial.println(bladder.exitcounterstarted);
   //Serial.println(millis() - bladder.exitcounterstarttime);
 }
