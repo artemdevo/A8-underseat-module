@@ -21,9 +21,7 @@ MCP_CAN CAN0(53); //CS default pin on arduino mega
 long unsigned int rxId;
 byte len = 0;
 byte rxBuf[8];
-char msgString[128];                        // Array to store serial string
-
-
+//char msgString[128];   TEST WITH THIS DISABLED                     // Array to store serial string
 
 struct SavedLumbarValues {
   byte byte0;
@@ -33,9 +31,9 @@ struct SavedLumbarValues {
 };
 
 struct LumbarStruct {
-  byte position;//which bladder to choose. not using this?
-  int pressure;//how much pressure in the bladder. not using this?
-  byte on; //on or off
+  //byte position;//which bladder to choose. not using this?
+  //int pressure;//how much pressure in the bladder. not using this?
+  byte on; //on or off. this applies to both pressure and position adjustments
   int desiredpressure; //the value received in the CAN message
   byte desiredposition; //the value received in the CAN message
   byte pressureup;
@@ -44,26 +42,30 @@ struct LumbarStruct {
   byte positiondown;
   byte dpadpositiontransition;
   byte bladderchange;
-  byte pressuresavetimersuppress;
-  long int pressuresavetimer;
+  byte pressuresavetimerenable;
+  long int pressuresavestarttime;
 };
 
-struct BladderStruct{
-  long int exitcounterstarttime;
-  byte exitcounterstarted;
+struct BladderStruct{//stuff specific for a bladder change
+  long int exittimerstarttime;
+  byte exittimerenable;
+};
+
+struct DPadStruct{
+  byte up;
+  byte down;
+  byte forward;
+  byte backward;
+  byte transition;
+  long int lastmessagetimer;
 };
 
 int observedpressure;
-//byte pressurechange;
-//byte positionchange;
-//byte pressurereached;
-
-
-//byte exitenable;
 
 LumbarStruct lumbar;
 SavedLumbarValues savedlumbarvalues;
 BladderStruct bladder;
+DPadStruct dpad;
 
 void setup() {
   
@@ -110,48 +112,84 @@ void loop() {
 
   if(!digitalRead(CAN0_INT)){                         // If CAN0_INT pin is low, read receive buffer
     CAN0.readMsgBuf(&rxId, &len, rxBuf);      // Read data: len = data length, buf = data byte(s)
-    if(rxId == 0x707){//if the newest received frame has an id of 0x707 (lumbar adjustment)
-      //lumbar.on = 1;//start lumbar
-
-      lumbar.positionup = rxBuf[0];
-      lumbar.positiondown = rxBuf[1];
-      lumbar.pressureup = rxBuf[2];
-      lumbar.pressuredown = rxBuf[3];
-    }
-  }
-  if(lumbar.positionup && !lumbar.dpadpositiontransition){
-    if(lumbar.desiredposition < 2){
-      lumbar.desiredposition++;
-      lumbar.bladderchange = 1;
-      
-    }
-    lumbar.dpadpositiontransition = 1;
-    //Serial.println(lumbar.desiredposition);
-  }
-  else if(lumbar.positiondown && !lumbar.dpadpositiontransition){
-    if(lumbar.desiredposition> 0){
-      lumbar.desiredposition--;
-      lumbar.bladderchange = 1;
-    }
-    lumbar.dpadpositiontransition = 1;
-    //Serial.println(lumbar.desiredposition);
-  }
-
-  if(!lumbar.positionup && !lumbar.positiondown){//if neither up or down are being pressed on the dpad
-    lumbar.dpadpositiontransition = 0; //set transition back to 0 so that values can change
-  }
-
-  if(lumbar.pressureup || lumbar.pressuredown){
-    lumbar.bladderchange = 0;//set bladder change to 0 if pressure is commanded to change. this is an easy way to override a bladder change in progress
-  }
-
-  if(lumbar.pressureup || lumbar.pressuredown || lumbar.positionup || lumbar.positiondown){
-    lumbar.on = 1;
+    dpad.up = rxBuf[0];
+    dpad.down = rxBuf[1];
+    dpad.forward = rxBuf[2];
+    dpad.backward = rxBuf[3];
+    
   }
   
+  if(dpad.up || dpad.down || dpad.forward || dpad.backward){//set the transition byte high if any of the values are 1
+    dpad.transition = 1;
+  }
+  else{
+    dpad.transition = 0;
+  }
 
+  ///////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  if(rxId == 0x707){//if the newest received frame has an id of 0x707 (lumbar adjustment)
+    dpad.lastmessagetimer = millis();
+    
+    if(dpad.up || dpad.down || dpad.forward || dpad.backward){//set lumbar on if any of the buttons are pressed and the rxID is for lumbar
+      lumbar.on = 1;
+    }
+
+    //lumbar.positionup = rxBuf[0];
+    //lumbar.positiondown = rxBuf[1];
+    //lumbar.pressureup = rxBuf[2];
+    //lumbar.pressuredown = rxBuf[3];
+    //SHOULD HAVE A STATEMENT FOR LUMBAR.ON = 0 IF THE RECEIVED CAN ID IS NOT 0X707
+    //HAVE A STRUCT AND VARIABLES SPECIFICALLY FOR BUTTON PRESSES AND TRANSITIONS. THEN, BASED ON CAN ID, DO SPECIFIC MODE VARIABLE ASSIGNMENTS
+    //ONE TRANSITION VARIABLE FOR WHOLE DPAD? CAN ONLY RESET IF NO DIRECTIONS ARE PRESSED? THIS PROBABLY WORKS
+  }
+  else if(rxId == 0x650){//if the newest received frame has an id of 0x650 (massage)
+  //add massage.on statement here when i combine the code over
+  dpad.lastmessagetimer = millis();
+  }
+  else if(rxId == 0x751){//if the newest received frame has an id of 0x751 (side bolster adjustment)
+  //add bolster.on statement here when i combine the code over
+  dpad.lastmessagetimer = millis();
+  }
+  
+  if(millis()- dpad.lastmessagetimer > 500){//if more than 500 ms has passed since any usable message was received, turn everything off
+    lumbar.on = 0;
+    //massage.on = 0;
+    //bolster.on = 0;
+  }
+  ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
+  
+
+  
+  
   if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
-    //lumbar.desiredpressure and lumbar.desiredposition come from the CAN message
+
+    if(dpad.up && !dpad.transition){
+      if(lumbar.desiredposition < 2){
+        lumbar.desiredposition++;
+        lumbar.bladderchange = 1;
+        
+      }
+      //lumbar.dpadpositiontransition = 1;
+      //Serial.println(lumbar.desiredposition);
+    }
+    else if(dpad.down && !dpad.transition){
+      if(lumbar.desiredposition> 0){
+        lumbar.desiredposition--;
+        lumbar.bladderchange = 1;
+      }
+      //lumbar.dpadpositiontransition = 1;
+      //Serial.println(lumbar.desiredposition);
+    }
+
+    //if(!lumbar.positionup && !lumbar.positiondown){//if neither up or down are being pressed on the dpad
+    // lumbar.dpadpositiontransition = 0; //set transition back to 0 so that values can change
+    //}
+
+    if(dpad.forward || dpad.backward){
+      lumbar.bladderchange = 0;//set bladder change to 0 if pressure is commanded to change. this is an easy way to override a bladder change in progress
+    }
     
     switch(lumbar.desiredposition){
       case 0:{//if the desired position is 0, the bottom lumbar bladder is switched on, others vented
@@ -224,43 +262,42 @@ void loop() {
       }
 
       if(abs(observedpressure - lumbar.desiredpressure) < 50){//if within 50 of the target pressure, start the exitcounter
-        if(!bladder.exitcounterstarted){//if this is the first time through this if statement since this pressure condition has been true, 
-          bladder.exitcounterstarttime = millis(); //if the reservoir is at the desired pressure, that means the lumbar bladder must be close as well, so start a counter
-          bladder.exitcounterstarted = 1;//so we don't refresh exitcountertime
+        if(!bladder.exittimerenable){//if this is the first time through this if statement since this pressure condition has been true, 
+          bladder.exittimerstarttime = millis(); //if the reservoir is at the desired pressure, that means the lumbar bladder must be close as well, so start a counter
+          bladder.exittimerenable = 1;//so we don't refresh exitcountertime
           //exitenable = 1;
           Serial.println("is the exit start time being refreshed?");
         }
       }
       else{
-        bladder.exitcounterstarted = 0;
-        //exitenable = 0;
+        bladder.exittimerenable = 0;
+        
       }
-      if(bladder.exitcounterstarted){//if more than 2 seconds have elapsed with the real pressure within +/- 50 of the desired
-        if (millis()-bladder.exitcounterstarttime > 2000){//if current time minus the start of the exit counter exceeds 2000 ms
+      if(bladder.exittimerenable){//if more than 2 seconds have elapsed with the real pressure within +/- 50 of the desired
+        if (millis()-bladder.exittimerstarttime > 2000){//if current time minus the start of the exit counter exceeds 2000 ms
           lumbar.bladderchange= 0;
-          bladder.exitcounterstarted = 0;
+          bladder.exittimerenable = 0;
           lumbar.on = 0;
           EEPROM.put(2, lumbar.desiredposition);//write the desired bladder position to saved address;
           Serial.println("Bladder position saved to eeprom!");
-          //exitenable = 0;
-      
+          
         }
       }
     }
     //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     /////~~~~~~~~~~~~~~~~~~~~~~~~~~~CODE FOR PRESSURE ADJUSTMENT AND SAVING VALUE TO EEPROM
-    if(!lumbar.bladderchange){//if we aren't doing a bladder change, it must be a pressure change 
-      if(observedpressure > 800 || !lumbar.pressureup){
+    if(!lumbar.bladderchange){//if we aren't doing a bladder change and lumbar is on, it must be a pressure change
+
+      if(observedpressure > 800 || !dpad.forward){
         digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 800 or if lumbar.pressureup is not high;
       }
       
-      else if(lumbar.pressureup && observedpressure < 750){
+      else if(dpad.forward && observedpressure < 750){
         digitalWrite(COMP, HIGH);//turn comp on if measured pressure is below 750 and pressure increase is commanded high
       }
       
-      
-      if(lumbar.pressuredown){
+      if(dpad.backward){
         switch(lumbar.desiredposition){
           case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
           digitalWrite(LOW_LUMBAR_VNT, HIGH);
@@ -292,14 +329,14 @@ void loop() {
           break;
         }
       }
-      if(lumbar.pressureup || lumbar.pressuredown){
-        lumbar.pressuresavetimer = millis();
-        lumbar.pressuresavetimersuppress = 0; //
+      if(dpad.forward || dpad.backward){
+        lumbar.pressuresavestarttime = millis();//set the save timer equal to the current time as long as pressure up or down are on
+        lumbar.pressuresavetimerenable = 1; //
       }
-      if(millis() - lumbar.pressuresavetimer > 500 && !lumbar.pressuresavetimersuppress){
+      if(millis() - lumbar.pressuresavestarttime > 500 && lumbar.pressuresavetimerenable){//if 500 ms pass without the save timer being "reset", save and exit
         EEPROM.put(0, observedpressure);
         lumbar.desiredpressure = observedpressure;
-        lumbar.pressuresavetimersuppress = 1;
+        lumbar.pressuresavetimerenable = 0;
         lumbar.on = 0;
         Serial.println("Saving pressure value to EEPROM!");
       }
@@ -320,13 +357,13 @@ void loop() {
   Serial.print(" ");
   Serial.print(lumbar.desiredposition);
    Serial.print(" ");
-  Serial.print(bladder.exitcounterstarted);
+  Serial.print(bladder.exittimerenable);
   Serial.print(" ");
-  Serial.print(millis()-bladder.exitcounterstarttime);
+  Serial.print(millis()-bladder.exittimerstarttime);
   Serial.print(" ");
   Serial.print(lumbar.bladderchange);
   Serial.println(" ");
   //Serial.println(lumbar.pressuredown);
-    //Serial.println(bladder.exitcounterstarted);
-  //Serial.println(millis() - bladder.exitcounterstarttime);
+    //Serial.println(bladder.exittimerenable);
+  //Serial.println(millis() - bladder.exittimerstarttime);
 }
