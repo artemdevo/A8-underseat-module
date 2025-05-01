@@ -364,11 +364,11 @@ void loop() {
     }
     if(millis()-massage.statestarttime > (unsigned long)massage.intensity*700){ //if the time has elapsed to change state, advance the state
       
-      if((massage.mode == 1 || massage.mode == 2) && massage.state < 4){//if we are in massage mode 1 or 2, being at state 4 or higher (if that somehow happens)
+      if((massage.mode == 1 || massage.mode == 2) && massage.state > 3){//if we are in massage mode 1 or 2, being at state 4 or higher (if that somehow happens)
                                                                   //return to state 0
         massage.state = 0;   
       }
-      else if(massage.mode == 3 && massage.state < 2){//if we are in massagemode 3 and at state 2 or higher, return state to 0
+      else if(massage.mode == 3 && massage.state > 1){//if we are in massagemode 3 and at state 2 or higher, return state to 0
         massage.state = 0;
       }
       else{

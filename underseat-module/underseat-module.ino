@@ -265,6 +265,7 @@ void loop() {
       if(massage.intensity < 2){
         massage.intensity++;//only increment if the value is not already 2
         EEPROM.put(1, massage.intensity); //immediately save the new value to memory
+        Serial.println("Intensity written to memory");
       }
       dpad.transition = 1;
     }
@@ -272,6 +273,7 @@ void loop() {
       if(massage.intensity > 0){
         massage.intensity--;//only decrement if the value is not already 0
         EEPROM.put(1, massage.intensity);//immediately save the new value to memory
+        Serial.println("Intensity written to memory");
       }
       dpad.transition = 1;
     }
@@ -283,6 +285,7 @@ void loop() {
         massage.mode++;
       }
       EEPROM.put(0, massage.mode);
+      Serial.println("Mode written to memory");
       dpad.transition = 1;
     }
     else if(dpad.back && !dpad.transition){
@@ -293,6 +296,7 @@ void loop() {
         massage.mode--;
       }
       EEPROM.put(0, massage.mode);
+      Serial.println("Mode written to memory");
       dpad.transition = 1;
     }
     
