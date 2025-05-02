@@ -256,13 +256,13 @@ void loop() {
     }
     ///////////////////////////////////////////
 
-    massage.previousmode[1] = massage.previousmode[0];
-    massage.previousmode[0] = massage.mode;//these two statements are to save the previous value of massage mode to compare the current value to the previous one.
+    //massage.previousmode[1] = massage.previousmode[0];
+    //massage.previousmode[0] = massage.mode;//these two statements are to save the previous value of massage mode to compare the current value to the previous one.
 
-    if(massage.previousmode[1] != massage.previousmode[0]){//if the previous mode does not equal the current mode;
-      massage.state = 0;//if we changed modes, make sure we go back to the first massage state so we aren't in a state too high for the current mode and sit there doing nothing
-      Serial.println("went back to massage state 0!");
-    }
+    //if(massage.previousmode[1] != massage.previousmode[0]){//if the previous mode does not equal the current mode;
+     // massage.state = 0;//if we changed modes, make sure we go back to the first massage state so we aren't in a state too high for the current mode and sit there doing nothing
+    //  Serial.println("went back to massage state 0!");
+   // }
     
     switch(massage.mode){//this is for selecting which massage mode. 0 = wave. 1 = stretch, 2 = lumbar stretch
       case 0:{
@@ -421,7 +421,7 @@ void loop() {
       digitalWrite(massagepins[i],LOW);
     }
   }
-  //Serial.println(observedpressure);
+  Serial.println(observedpressure);
   //digitalWrite(VENT, HIGH);
   //delay(100);
   //digitalWrite(VENT, LOW);

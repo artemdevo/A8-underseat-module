@@ -11,7 +11,7 @@
 #define D_PAD_FB A2
 #define BEZ_RNG A3
 #define MAX_STATE 5 //this is the maximum state number, 1 less than the state count (state 0 is a state)
-#define FPSerial softSerial
+//#define FPSerial softSerial
 
 byte voicestate = 0; //use this just for voice messages
 byte truestate = 0;
@@ -102,10 +102,10 @@ void setup() {
   pinMode(4, OUTPUT);
   pinMode(5, OUTPUT);
 
-  FPSerial.begin(9600);//CAN I SPEED THIS UP TO MAKE THE VOICE MESSAGES TAKE LESS TIME?
+  softSerial.begin(9600);//LITERALLY ONLY ALLOWS MP3 PLAYER TO WORK AT 9600. NOT FASTER NOT SLOWER
   Serial.begin(115200);
  
-  myDFPlayer.begin(FPSerial, /*isACK = */true, /*doReset = */true);//reset needs to be true for this shit to work on external power
+  myDFPlayer.begin(softSerial, /*isACK = */true, /*doReset = */true);//reset needs to be true for this shit to work on external power
   
   myDFPlayer.volume(15);  //Set volume value. From 0 to 30
   
@@ -125,6 +125,7 @@ void setup() {
       EEPROM.put(0, 1);
       savedmassagevalues.mode = 0;
       savedmassagevalues.intensity = 0;
+      Serial.println("reset saved values!");
     }
   Serial.println(savedmassagevalues.mode);
   Serial.println(savedmassagevalues.intensity);
