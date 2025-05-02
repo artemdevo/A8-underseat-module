@@ -202,7 +202,7 @@ void loop() {
     }
     else if(!massage.on){//start the massage when button pressed measure time start
       truestate = 3; //switch to massage state 
-      voicestate = 3; //play voice message
+      voicestate = 3; //play voice message. GOING TO CHANGE THIS TO SAY "MASSAGE ON", NOT JUST THAT ITS IN THE MASSAGE STATE
       messageplaycount = 0; //make sure sound plays
       massage.on = 1;
       massage.transition = 1;
@@ -225,6 +225,7 @@ void loop() {
       //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit);
       //CAN0.sendMsgBuf(0x664, 0, 3, hvac);
       CAN0.sendMsgBuf(0x650, 0, 2, massage.data);
+      Serial.println(massage.mode);
       
       massage.messagetime = millis();
     }

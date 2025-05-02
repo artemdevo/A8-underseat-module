@@ -117,8 +117,8 @@ void setup() {
   pinMode(CAN0_INT, INPUT);
 
   //digitalWrite(VENT, HIGH);//these initialized vents help the reservoir pressure start lower when massaging, less strain on compressor?
-  //delay(500);
-  //digitalWrite(VENT, LOW);
+  //delay(1000);
+ //digitalWrite(VENT, LOW);
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~LUMBAR STUFF~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   //for(int i = 0; i < 8; i++){
    // pinMode(lumbarpins[i], OUTPUT);
@@ -252,10 +252,11 @@ void loop() {
 
     if(massage.previousmode[1] != massage.previousmode[0]){//if the previous mode does not equal the current mode;
       massage.state = 0;//if we changed modes, make sure we go back to the first massage state so we aren't in a state too high for the current mode and sit there doing nothing
+      Serial.println("went back to massage state 0!");
     }
     
-    switch(massage.mode){//this is for selecting which massage mode. 1 = wave. 2 = stretch, 3 = lumbar stretch
-      case 1:{
+    switch(massage.mode){//this is for selecting which massage mode. 0 = wave. 1 = stretch, 2 = lumbar stretch
+      case 0:{
         switch(massage.state){//for setting pins in a particular massage state for massage mode 1
           case 0:{
             digitalWrite(28, HIGH);
@@ -295,7 +296,7 @@ void loop() {
         }
       }
       break;
-      case 2:{ //for setting pins in a particular massage state for massage mode 2
+      case 1:{ //for setting pins in a particular massage state for massage mode 2
         switch(massage.state){//for setting pins in a particular massage state for massage mode 2
           case 0:{
             digitalWrite(28, HIGH);
@@ -335,7 +336,7 @@ void loop() {
         }
       } 
       break;
-      case 3:{//for setting pins in a particular massage state for massage mode 3
+      case 2:{//for setting pins in a particular massage state for massage mode 3
         switch(massage.state){//for setting pins in a particular massage state for massage mode 3
           case 0:{
             digitalWrite(28, HIGH);
@@ -362,13 +363,13 @@ void loop() {
       }
       break;
     }
-    if(millis()-massage.statestarttime > (unsigned long)massage.intensity*700){ //if the time has elapsed to change state, advance the state
+    if(millis()-massage.statestarttime > ((unsigned long)massage.intensity*700 + 700)){ //if the time has elapsed to change state, advance the state
       
-      if((massage.mode == 1 || massage.mode == 2) && massage.state > 3){//if we are in massage mode 1 or 2, being at state 4 or higher (if that somehow happens)
+      if((massage.mode == 0 || massage.mode == 1) && massage.state > 3){//if we are in massage mode 0 or 2, being at state 4 or higher (if that somehow happens)
                                                                   //return to state 0
         massage.state = 0;   
       }
-      else if(massage.mode == 3 && massage.state > 1){//if we are in massagemode 3 and at state 2 or higher, return state to 0
+      else if(massage.mode == 2 && massage.state > 1){//if we are in massagemode 2 and at state 2 or higher, return state to 0
         massage.state = 0;
       }
       else{
@@ -376,13 +377,16 @@ void loop() {
       }
       massage.statestarttime = millis();
     }
+    digitalWrite(COMP, HIGH); //turning comp on all the time when massage is on;
 
     if(observedpressure<750){//during the massage, compressor should always be running but should not exceed a pressure of 800. MAYBE PUT THIS OUTSIDE THE MASSAGE FUNCTION? 
                               //CAN APPLY TO THE OTHER PNEUMATICS AS WELL
-      digitalWrite(COMP, HIGH);
+    
+      digitalWrite(VENT, LOW);
     }
     else if(observedpressure>800){//add a statement to turn off slightly above 800 to introduce hysteresis
-      digitalWrite(COMP, LOW);  
+     
+      digitalWrite(VENT, HIGH);  
     }
 
 
@@ -392,7 +396,7 @@ void loop() {
       digitalWrite(massagepins[i],LOW);
     }
   }
-  Serial.println(observedpressure);
+  //Serial.println(observedpressure);
   //digitalWrite(VENT, HIGH);
   //delay(100);
   //digitalWrite(VENT, LOW);
