@@ -21,9 +21,16 @@
 /////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DEFINES FOR MASSAGE~~~~~~~~~~~~~~~~~~~~`
-
-
-
+#define UPPERMOST_LEFT_BLD 34
+#define UPPERMOST_RIGHT_BLD 28
+#define MID_UPPER_LEFT_BLD 36
+#define MID_UPPER_RIGHT_BLD 26
+#define MID_LEFT_BLD 30
+#define MID_RIGHT_BLD 38
+#define MID_LOWER_LEFT_BLD 40
+#define MID_LOWER_RIGHT_BLD 19
+#define LOWERMOST_LEFT_BLD 21
+#define LOWERMOST_RIGHT_BLD 24
 //////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 struct SavedLumbarValues {
@@ -70,6 +77,8 @@ struct MassageStruct{
   byte intensity;
   byte firststate;
   byte previousmode[2];
+  byte pinstosethigh[10];
+  byte bladderpins[10] = {28, 34, 26, 36, 38, 30, 19, 40, 24, 21};//THESE ARE JUST THE BLADDERS
   unsigned long delaytime;
   unsigned long statestarttime = 1000;
   unsigned long lastmessagetimer;
@@ -83,11 +92,12 @@ byte rxBuf[8];
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~ARRAYS TO ORGANIZE SPECIFIC PINS TO SET PINMODE AND OUTPUT LOW WHEN NOT IN  USE~~~~~~~~~~~~~~~~~
 byte pins[22]={10, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 34, 36, 38, 40, 42, 44, 46};
-byte bladderpins[20] = {18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 34, 36, 38, 40, 42, 44, 46};
+//byte bladderpins[20] = {18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 34, 36, 38, 40, 42, 44, 46};
 
 byte lumbarpins[8] = {18, 22, 44, 20, 46, 42, 10, 23};//this includes 10, the compressor. remove it?
 
-byte massagepins[11] = {19, 21, 24, 26, 28, 30, 34, 36, 38, 40, 10};
+byte massagepins[11] = {19, 21, 24, 26, 28, 30, 34, 36, 38, 40, 10};//THIS INCLUDES THE COMPRESSOR
+
 
 ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -101,6 +111,8 @@ SavedMassageValues savedmassagevalues;
 MCP_CAN CAN0(53);   
 
 void lumbarAdjustfunction();
+
+void massagebladderpinsetfunction();
 
 
 
@@ -235,9 +247,6 @@ void loop() {
 
 ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~old massage code is everything down below this in the loop()~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`
   
-  
-  
-  
   if(massage.on){
     ///////////////////////////////////////////checks if massage has just been started so that we can reset the state position and set the start time for the first state
     if(massage.firststate){
@@ -259,38 +268,52 @@ void loop() {
       case 0:{
         switch(massage.state){//for setting pins in a particular massage state for massage mode 1
           case 0:{
-            digitalWrite(28, HIGH);
-            digitalWrite(34, HIGH);
-            digitalWrite(24, LOW);
-            digitalWrite(21, LOW);
+            //digitalWrite(28, HIGH);
+            massage.pinstosethigh[0] = UPPERMOST_RIGHT_BLD;
+            //digitalWrite(34, HIGH);
+            massage.pinstosethigh[1] = UPPERMOST_LEFT_BLD;
+            massagebladderpinsetfunction();
+            
           }
           break;
           case 1:{
-            digitalWrite(26, HIGH);
-            digitalWrite(36, HIGH);
-            digitalWrite(28, LOW);
-            digitalWrite(34, LOW); 
+            //digitalWrite(26, HIGH);
+            //digitalWrite(36, HIGH);
+            //digitalWrite(28, LOW);
+            //digitalWrite(34, LOW); 
+            massage.pinstosethigh[0] = MID_UPPER_LEFT_BLD;
+            massage.pinstosethigh[1] = MID_UPPER_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 2:{
-            digitalWrite(38, HIGH);
-            digitalWrite(30, HIGH);
-            digitalWrite(26, LOW);
-            digitalWrite(36, LOW);
+            //digitalWrite(38, HIGH);
+            //digitalWrite(30, HIGH);
+            //digitalWrite(26, LOW);
+            //digitalWrite(36, LOW);
+            massage.pinstosethigh[0] = MID_LEFT_BLD;
+            massage.pinstosethigh[1] = MID_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 3:{
-            digitalWrite(19, HIGH);
-            digitalWrite(40, HIGH);
-            digitalWrite(38, LOW);
-            digitalWrite(30, LOW);
+            //digitalWrite(19, HIGH);
+            //digitalWrite(40, HIGH);
+            //digitalWrite(38, LOW);
+            //digitalWrite(30, LOW);
+            massage.pinstosethigh[0] = MID_LOWER_LEFT_BLD;
+            massage.pinstosethigh[1] = MID_LOWER_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 4:{
-            digitalWrite(24, HIGH);
-            digitalWrite(21, HIGH);
-            digitalWrite(19, LOW);
-            digitalWrite(40, LOW);
+            //digitalWrite(24, HIGH);
+            //digitalWrite(21, HIGH);
+            //digitalWrite(19, LOW);
+            //digitalWrite(40, LOW);
+            massage.pinstosethigh[0] = LOWERMOST_LEFT_BLD;
+            massage.pinstosethigh[1] = LOWERMOST_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
         }
@@ -341,8 +364,8 @@ void loop() {
           case 0:{
             digitalWrite(28, HIGH);
             digitalWrite(34, HIGH);
-            digitalWrite(24, LOW);
-            digitalWrite(21, LOW);
+            digitalWrite(38, LOW);
+            digitalWrite(30, LOW);
           }
           break;
           case 1:{
@@ -363,25 +386,27 @@ void loop() {
       }
       break;
     }
+    ///////////////////////////////////////////////STATEMENTS TO CHANGE THE MASSAGE STATE DEPENDING ON THE MODE AND THE ELAPSED TIME IN THE CURRENT STATE///////////////////
     if(millis()-massage.statestarttime > ((unsigned long)massage.intensity*700 + 700)){ //if the time has elapsed to change state, advance the state
-      
-      if((massage.mode == 0 || massage.mode == 1) && massage.state > 3){//if we are in massage mode 0 or 2, being at state 4 or higher (if that somehow happens)
-                                                                  //return to state 0
-        massage.state = 0;   
-      }
-      else if(massage.mode == 2 && massage.state > 1){//if we are in massagemode 2 and at state 2 or higher, return state to 0
-        massage.state = 0;
-      }
-      else{
-        massage.state++;
-      }
+      massage.state++;
       massage.statestarttime = millis();
     }
+
+    if((massage.mode == 0 || massage.mode == 1) && massage.state > 4){//if we are in massage mode 0 or 2, being at state 5 or higher (if that somehow happens)
+                                                                  //return to state 0
+        massage.state = 0; 
+        massage.statestarttime = millis();  
+      }
+    else if(massage.mode == 2 && massage.state > 2){//if we are in massagemode 2 and at state 3 or higher, such as when moving from another mode, return state to 0
+        massage.state = 0;
+        massage.statestarttime = millis();
+    }
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
     digitalWrite(COMP, HIGH); //turning comp on all the time when massage is on;
 
-    if(observedpressure<750){//during the massage, compressor should always be running but should not exceed a pressure of 800. MAYBE PUT THIS OUTSIDE THE MASSAGE FUNCTION? 
+    if(observedpressure<600){//during the massage, compressor should always be running but should not exceed a pressure of 800. MAYBE PUT THIS OUTSIDE THE MASSAGE FUNCTION? 
                               //CAN APPLY TO THE OTHER PNEUMATICS AS WELL
-    
       digitalWrite(VENT, LOW);
     }
     else if(observedpressure>800){//add a statement to turn off slightly above 800 to introduce hysteresis
@@ -605,3 +630,29 @@ void lumbarAdjustfunction(){
   }
 }
 
+void massagebladderpinsetfunction(){
+  for(int i = 0; i < 10; i++){ //the array will always have a maximum length of 10, there are 10 massage bladders
+    if(massage.pinstosethigh[i] != 0){
+      digitalWrite(massage.pinstosethigh[i], HIGH);//write the pin numbers in the array to high
+    }
+    else{
+      break;
+    }
+  }
+  for(int massagebladderpinIndex = 0; massagebladderpinIndex < 10; massagebladderpinIndex++){
+    for(int highpinIndex = 0; highpinIndex < 10; highpinIndex++){
+      if(massage.bladderpins[massagebladderpinIndex] == massage.pinstosethigh[highpinIndex]){//if the current massage bladder pin is equal to one that was previosly written high
+        break;//get out of the INNER for loop because this bladder pin must be one of the ones we wrote high and go on to the next bladder pin 
+      }
+      if(massage.pinstosethigh[highpinIndex] == 0){//if we got to a point in the massage high pin for loop without breaking out in the previous statement
+        digitalWrite(massage.bladderpins[massagebladderpinIndex], LOW);//the current massage bladder pin must not be one of the ones we wrote high, so write it low
+        break;//and then break and go to the next massage pin to test and see if it was written high
+      }
+    }
+
+  }
+ for(int i = 0; i <10; i++){
+  massage.pinstosethigh[i] = 0; //finally, reset the pinstosethigh array back to 0;
+ }
+
+}
