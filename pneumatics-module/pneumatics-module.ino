@@ -264,9 +264,9 @@ void loop() {
     //  Serial.println("went back to massage state 0!");
    // }
     
-    switch(massage.mode){//this is for selecting which massage mode. 0 = wave. 1 = stretch, 2 = lumbar stretch
+    switch(massage.mode){//this is for selecting which massage mode. 0 = wave. 1 = shoulder, 2 = lumbar 
       case 0:{
-        switch(massage.state){//for setting pins in a particular massage state for massage mode 1
+        switch(massage.state){//for setting pins in a particular massage state for massage mode 0(wave)
           case 0:{
             //digitalWrite(28, HIGH);
             massage.pinstosethigh[0] = UPPERMOST_RIGHT_BLD;
@@ -319,67 +319,63 @@ void loop() {
         }
       }
       break;
-      case 1:{ //for setting pins in a particular massage state for massage mode 2
-        switch(massage.state){//for setting pins in a particular massage state for massage mode 2
+      case 1:{ //for setting pins in a particular massage state for massage mode 1
+        switch(massage.state){//for setting pins in a particular massage state for massage mode 1
           case 0:{
-            digitalWrite(28, HIGH);
-            digitalWrite(34, HIGH);
-            digitalWrite(24, LOW);
-            digitalWrite(21, LOW);
+            massage.pinstosethigh[0] = UPPERMOST_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 1:{
-            digitalWrite(26, HIGH);
-            digitalWrite(36, HIGH);
-            digitalWrite(28, LOW);
-            digitalWrite(34, LOW); 
+            massage.pinstosethigh[0] = UPPERMOST_LEFT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 2:{
-            digitalWrite(38, HIGH);
-            digitalWrite(30, HIGH);
-            digitalWrite(26, LOW);
-            digitalWrite(36, LOW);
+            massage.pinstosethigh[0] = MID_UPPER_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 3:{
-            digitalWrite(19, HIGH);
-            digitalWrite(40, HIGH);
-            digitalWrite(38, LOW);
-            digitalWrite(30, LOW);
-          }
-          break;
-          case 4:{
-            digitalWrite(24, HIGH);
-            digitalWrite(21, HIGH);
-            digitalWrite(19, LOW);
-            digitalWrite(40, LOW);
+            massage.pinstosethigh[0] = MID_UPPER_LEFT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
         }
       } 
       break;
-      case 2:{//for setting pins in a particular massage state for massage mode 3
-        switch(massage.state){//for setting pins in a particular massage state for massage mode 3
+      case 2:{//for setting pins in a particular massage state for massage mode 2-LUMBAR 
+        switch(massage.state){//for setting pins in a particular massage state for massage mode 2
           case 0:{
-            digitalWrite(28, HIGH);
-            digitalWrite(34, HIGH);
-            digitalWrite(38, LOW);
-            digitalWrite(30, LOW);
+            massage.pinstosethigh[0] = MID_LOWER_LEFT_BLD;
+            massage.pinstosethigh[1] = MID_LOWER_RIGHT_BLD;
+            massagebladderpinsetfunction();
           }
           break;
           case 1:{
-            digitalWrite(26, HIGH);
-            digitalWrite(36, HIGH);
-            digitalWrite(28, LOW);
-            digitalWrite(34, LOW); 
+            massage.pinstosethigh[0] = MID_LEFT_BLD;
+            massage.pinstosethigh[1] = MID_RIGHT_BLD;
+            massagebladderpinsetfunction(); 
           }
           break;
           case 2:{
-            digitalWrite(38, HIGH);
-            digitalWrite(30, HIGH);
-            digitalWrite(26, LOW);
-            digitalWrite(36, LOW);
+            massage.pinstosethigh[0] = MID_LOWER_RIGHT_BLD;
+            massagebladderpinsetfunction(); 
+          }
+          break;
+          case 3:{
+            massage.pinstosethigh[0] = MID_LOWER_LEFT_BLD;
+            massagebladderpinsetfunction(); 
+          }
+          break;
+          case 4:{
+            massage.pinstosethigh[0] = MID_RIGHT_BLD;
+            massagebladderpinsetfunction(); 
+          }
+          break;
+          case 5:{
+            massage.pinstosethigh[0] = MID_LEFT_BLD;
+            massagebladderpinsetfunction(); 
           }
           break;
         }
@@ -387,17 +383,20 @@ void loop() {
       break;
     }
     ///////////////////////////////////////////////STATEMENTS TO CHANGE THE MASSAGE STATE DEPENDING ON THE MODE AND THE ELAPSED TIME IN THE CURRENT STATE///////////////////
-    if(millis()-massage.statestarttime > ((unsigned long)massage.intensity*700 + 700)){ //if the time has elapsed to change state, advance the state
+    if(millis()-massage.statestarttime > ((unsigned long)massage.intensity*500 + 1100)){ //if the time has elapsed to change state, advance the state
       massage.state++;
       massage.statestarttime = millis();
     }
 
-    if((massage.mode == 0 || massage.mode == 1) && massage.state > 4){//if we are in massage mode 0 or 2, being at state 5 or higher (if that somehow happens)
-                                                                  //return to state 0
-        massage.state = 0; 
+    if(massage.mode == 0 && massage.state > 4){//if we are in massage mode 0, being at state 5 or higher (if that somehow happens)                                                
+        massage.state = 0;        //return to state 0
         massage.statestarttime = millis();  
       }
-    else if(massage.mode == 2 && massage.state > 2){//if we are in massagemode 2 and at state 3 or higher, such as when moving from another mode, return state to 0
+    else if(massage.mode == 1 && massage.state > 3){
+      massage.state = 0; 
+      massage.statestarttime = millis(); 
+    }
+    else if(massage.mode == 2 && massage.state > 5){//if we are in massagemode 2 and at state 6 or higher, such as when moving from another mode, return state to 0
         massage.state = 0;
         massage.statestarttime = millis();
     }
