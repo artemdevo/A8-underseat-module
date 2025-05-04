@@ -89,8 +89,9 @@ byte ignit[4] = {0x00, 0x00, 0xff, 0xff};
 byte hvac[3]= {0x0, 0xC0, 0x0};
 
 
-void seatmotoradjust();
-void lumbarfunction();
+void seatmotorAdjustfunction();
+void lumbarAdjustfunction();
+void massageAdjustfunction();
 
 MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
 
@@ -194,12 +195,13 @@ void loop() {
   }
   /////-----------------------------------------------------------------------------------
 
-  ////////---------------------------------------------------------massage button and massage function stuff. adjustments to the massage will be done in a state
+  ////////------////////////////////////////////-massage button and massage function stuff. adjustments to the massage will be done in a state
   if(massage.btnpressed && !massage.transition && truestate != 1 && truestate != 4){//going to need to write the specific states that lumbar and bolster adjustment are assigned to
     
     if(massage.on){//if button is pressed with massage on
       massage.on = 0;
       massage.transition = 1;
+      //Serial.println("massage turned off");
     }
     else if(!massage.on){//start the massage when button pressed measure time start
       truestate = 3; //switch to massage state 
@@ -208,11 +210,13 @@ void loop() {
       massage.on = 1;
       massage.transition = 1;
       massage.starttime = millis();
+      //Serial.println("massage turned on");
 
     }
   }
   if(massage.btnreleased){//if you let go of the massage button, return massagetransition to value 0
     massage.transition = 0;
+    
   }
   
   
@@ -226,7 +230,7 @@ void loop() {
       //CAN0.sendMsgBuf(0x3C0, 0, 4, ignit);
       //CAN0.sendMsgBuf(0x664, 0, 3, hvac);
       CAN0.sendMsgBuf(0x650, 0, 2, massage.data);
-      Serial.println(massage.mode);
+      
       
       massage.messagetime = millis();
     }
@@ -236,20 +240,21 @@ void loop() {
     }
     
   }
-  ////////////----------------------------------------------------------------------------------
+  ////////////-------------------------------------------------END OF MASSAGE BUTTON AND FUNCTION STUFF---------------------------------
 
   ///////////////------------------------------------------------state 1-lumbar
           ////NEED TO TURN OFF MASSAGE IN WHICHEVER STATE I END UP USING FOR THIS. SAME AS FOR BOLSTER ADJUSTMENT!!!!!!!!!!!!!!!!!!!!!!!!!
   if(truestate ==1){
-    massage.on = 0;//must make sure massage is not on when in this state;
-    lumbarfunction();
+    massage.on = 0;//must make sure massage is not on when in this state, no massage messages being transmitted
+    //bolster.on = 0; NO NEED FOR THIS. IT JUST SENDS CAN MESSAGES BASED ON THE POSITION OF THE DPAD. SAME AS LUMBAR
+    lumbarAdjustfunction();
   }
 
 
 
   ////////////////////---------------------------------------------------when in state 2? can control motors
   if(truestate == 2){
-    seatmotoradjust();
+    seatmotorAdjustfunction();
   }
   else{//if the current state is not 2 (or whatever state), make sure that the motors cannot move 
     digitalWrite(2, LOW);
@@ -259,49 +264,10 @@ void loop() {
   }
   //////////////////////////-----------------------------------------------
 
-  ///////-----------------------state for massage. the massage itself is turned on by the massage button statement above. the state is to change values and send CAN messages
+  ///////-----------------------state for massage setting adjustment. the massage itself is turned on by the massage button statement above. the state is to change values and send CAN messages
   ////SHOULD THERE BE VOICE MESSAGES HERE AS I CHANGE THE INTENSITY/MODE???
   if(truestate == 3){
-
-    if(dpad.up && !dpad.transition){
-      if(massage.intensity < 2){
-        massage.intensity++;//only increment if the value is not already 2
-        EEPROM.put(1, massage.intensity); //immediately save the new value to memory
-        Serial.println("Intensity written to memory");
-      }
-      dpad.transition = 1;
-    }
-    else if(dpad.down && !dpad.transition){
-      if(massage.intensity > 0){
-        massage.intensity--;//only decrement if the value is not already 0
-        EEPROM.put(1, massage.intensity);//immediately save the new value to memory
-        Serial.println("Intensity written to memory");
-      }
-      dpad.transition = 1;
-    }
-    else if(dpad.forward && !dpad.transition){
-      if(massage.mode == 2){
-        massage.mode = 0;
-      }
-      else{
-        massage.mode++;
-      }
-      EEPROM.put(0, massage.mode);
-      Serial.println("Mode written to memory");
-      dpad.transition = 1;
-    }
-    else if(dpad.back && !dpad.transition){
-      if(massage.mode == 0){
-        massage.mode = 2;
-      }
-      else{
-        massage.mode--;
-      }
-      EEPROM.put(0, massage.mode);
-      Serial.println("Mode written to memory");
-      dpad.transition = 1;
-    }
-    
+    massageAdjustfunction();
   }
 
   /////////-------------------------------------------------
@@ -340,7 +306,7 @@ void loop() {
   /////----------------------------------------------------
 
   ////-----------------------------------------for testing only, make a thing that prints the truestate and voice state once per second
-
+  //Serial.println(millis()-massage.starttime);
  // time2 = millis();
 
   //if((time2-time1)>200)
@@ -365,7 +331,7 @@ void loop() {
   
 }
 
-void seatmotoradjust(){
+void seatmotorAdjustfunction(){
   
   //if(truestate == 2){
     if(dpad.up){//if up is pressed on the d pad
@@ -403,7 +369,7 @@ void seatmotoradjust(){
   //}
 }
 
-void lumbarfunction(){
+void lumbarAdjustfunction(){
   if(dpad.up){//if up is pressed on the d pad
       lumbar.positionup = 1;//request to increase lumbar position
       lumbar.positiondown = 0;
@@ -438,5 +404,47 @@ void lumbarfunction(){
     
     CAN0.sendMsgBuf(0x707, 0, 4, lumbar.data);
     lumbar.messagetime = millis();
+  }
+}
+
+void massageAdjustfunction(){
+
+  if(dpad.up && !dpad.transition){
+    if(massage.intensity < 2){
+      massage.intensity++;//only increment if the value is not already 2
+      EEPROM.put(1, massage.intensity); //immediately save the new value to memory
+      Serial.println("Intensity written to memory");
+    }
+    dpad.transition = 1;
+  }
+  else if(dpad.down && !dpad.transition){
+    if(massage.intensity > 0){
+      massage.intensity--;//only decrement if the value is not already 0
+      EEPROM.put(1, massage.intensity);//immediately save the new value to memory
+      Serial.println("Intensity written to memory");
+    }
+    dpad.transition = 1;
+  }
+  else if(dpad.forward && !dpad.transition){
+    if(massage.mode == 2){
+      massage.mode = 0;
+    }
+    else{
+      massage.mode++;
+    }
+    EEPROM.put(0, massage.mode);
+    Serial.println("Mode written to memory");
+    dpad.transition = 1;
+  }
+  else if(dpad.back && !dpad.transition){
+    if(massage.mode == 0){
+      massage.mode = 2;
+    }
+    else{
+      massage.mode--;
+    }
+    EEPROM.put(0, massage.mode);
+    Serial.println("Mode written to memory");
+    dpad.transition = 1;
   }
 }
