@@ -15,7 +15,7 @@
 
 byte voicestate = 0; //use this just for voice messages
 byte truestate = 0;
-byte messageplaycount;
+byte messageplaysupress;
 unsigned long canmessagetime = 0;
 
 
@@ -26,8 +26,6 @@ struct SavedMassageValues {
 
 struct LumbarStruct {
   byte on; //on or off
-  //int desiredpressure; //the value sent in the CAN message
-  //int desiredpressurenew;
   byte desiredposition; //the value sent in the CAN message
   byte desiredpositionnew;
   byte positionup;
@@ -123,7 +121,7 @@ void setup() {
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);
   CAN0.setMode(MCP_NORMAL);
   
-  messageplaycount = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
+  messageplaysupress = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
   
 ////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MASSAGE STUFF~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -176,7 +174,7 @@ void loop() {
     voicestate++; //play voice message for whatever state you just changed to, probably make it a switch case?
     }
     bezelring.transition = 1;
-    messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played 
+    messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played 
   }
   /////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
   else if(bezelring.down && !bezelring.transition){//if down on the bezel ring is pressed, decrease state by 1 
@@ -188,7 +186,7 @@ void loop() {
     }; 
     bezelring.transition = 1; //prep for the state transition
     //make sure transitionup is off
-    messageplaycount = 0;//set to 0 so that the voice message for the voice state will be played
+    messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played
   }
 
   else if(bezelring.released){
@@ -214,7 +212,7 @@ void loop() {
     else if(!massage.on){//start the massage when button pressed measure time start
       truestate = 1; //switch to massage state 
       voicestate = 1; //play voice message. GOING TO CHANGE THIS TO SAY "MASSAGE ON", NOT JUST THAT ITS IN THE MASSAGE STATE
-      messageplaycount = 0; //make sure sound plays
+      messageplaysupress = 0; //make sure sound plays
       massage.on = 1;
       massage.transition = 1;
       massage.starttime = millis();
@@ -270,7 +268,7 @@ void loop() {
 
   ///////////////////////////////////////////////////////////////////////////////////////-----------------------------------
 
-  /////////////////////////////////////////////----------------------------------------state 2-lumbar
+  ///////////////////////////////////////////////////////state 2-lumbar
           ////NEED TO TURN OFF MASSAGE IN WHICHEVER STATE I END UP USING FOR THIS. SAME AS FOR BOLSTER ADJUSTMENT!!!!!!!!!!!!!!!!!!!!!!!!!
   if(truestate ==2){
     massage.on = 0;//must make sure massage is not on when in this state, no massage messages being transmitted
@@ -285,13 +283,13 @@ void loop() {
     bolsterAdjustfunction();
   }
   
-/////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
  
 
   /////////------------------------------------switch case for playing messages when a state change happens 
 
 
-  if(messageplaycount==0){
+  if(messageplaysupress==0){
     switch(voicestate){
       case 0:{
         //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
@@ -313,7 +311,7 @@ void loop() {
       }
       break;
     }
-    messageplaycount = 1;
+    messageplaysupress = 1;
   }
   /////----------------------------------------------------
 

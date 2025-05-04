@@ -92,6 +92,12 @@ struct MassageStruct{
 struct BolsterStruct{
   byte on;
   byte pins[4] = {29, 31, 25, 27};
+  byte cushion_over_pres;
+  byte backrest_over_pres;
+  byte pressure_measure_enable;
+  byte pressure_measure_delay_timer_start;
+  unsigned long pressure_measure_delay_timer;
+
 };
 
 int observedpressure;//variable to store pressure reads
@@ -385,10 +391,11 @@ void lumbarAdjustfunction(){
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   /////~~~~~~~~~~~~~~~~~~~~~~~~~~~CODE FOR PRESSURE ADJUSTMENT AND SAVING VALUE TO EEPROM
-  if(!lumbar.bladderchange){//if we aren't doing a bladder change and lumbar is on, it must be a pressure change
+  if(!lumbar.bladderchange){//if we aren't doing a bladder change and lumbar is on, it must be a pressure change in the same bladder
 
-    if(observedpressure > 730 || !dpad.forward){
+    if(observedpressure > 730 ){//this used to be OR !dpad.forward
       digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 730 or if lumbar.pressureup is not high; using this lower value because it takes forever to get there
+      
     }
     
     else if(dpad.forward && observedpressure < 700){
@@ -412,7 +419,6 @@ void lumbarAdjustfunction(){
       }
     }
     else{
-      
       switch(lumbar.desiredposition){//if there is no command to drop pressure, turn the respective solenoid off
         case 0:{
         digitalWrite(LOW_LUMBAR_VNT, LOW);
@@ -439,7 +445,6 @@ void lumbarAdjustfunction(){
       lumbar.on = 0;
     }
   }
-  ////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`  
 }
   
 void massagefunction(){
@@ -601,18 +606,47 @@ void massagebladderpinsetfunction(){
 }
 
 void bolsterfunction(){
+  if(!bolster.backrest_over_pres && !bolster.cushion_over_pres){
+    bolster.pressure_measure_enable = 1;//if neither upper or lower bolsters have hit max pressure, can immediately start controls by measuring pressure
+  }
+  
  if(dpad.up){//this means cushionup
-    if(observedpressure < 700){
+    if(!bolster.pressure_measure_enable && !bolster.cushion_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
       digitalWrite(COMP, HIGH);
       digitalWrite(VENT, LOW);
       digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
       digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
       digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
       digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+      if(!bolster.pressure_measure_delay_timer_start){
+        bolster.pressure_measure_delay_timer = millis();
+        bolster.pressure_measure_delay_timer_start = 1;
+      }
+      if(millis()-bolster.pressure_measure_delay_timer > 500){
+        bolster.pressure_measure_enable = 1;
+        bolster.pressure_measure_delay_timer_start = 0;
+      }
     }
-    else if(observedpressure > 730){
-      digitalWrite(COMP, LOW);
+    else if(bolster.pressure_measure_enable && !bolster.cushion_over_pres){
+      if(observedpressure < 700){
+        digitalWrite(COMP, HIGH);
+        digitalWrite(VENT, LOW);
+        digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
+        digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
+        digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
+        digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+      }
+      else if(observedpressure > 730){
+        digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
+        digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
+        digitalWrite(COMP, LOW);
+        bolster.cushion_over_pres = 1;
+        bolster.pressure_measure_enable = 0;//since we just hit overpressure in this case, turn off the ability to immediately measure pressure
+      }
     }
+    //else if(bolster.cushion_over_pres){
+     // digitalWrite(COMP, LOW);
+    //}
   }
   else if(dpad.down){//this means cushiondown
     digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
@@ -621,20 +655,46 @@ void bolsterfunction(){
     digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
     digitalWrite(COMP, LOW);
     digitalWrite(VENT, HIGH);
+    bolster.cushion_over_pres = 0;
   }
 
   if(dpad.forward){//this means backrestup
-  if(observedpressure < 700){
+    if(!bolster.pressure_measure_enable && !bolster.backrest_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
       digitalWrite(COMP, HIGH);
       digitalWrite(VENT, LOW);
       digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
       digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
       digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
       digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
+      if(!bolster.pressure_measure_delay_timer_start){
+        bolster.pressure_measure_delay_timer = millis();
+        bolster.pressure_measure_delay_timer_start = 1;
+      }
+      if(millis()-bolster.pressure_measure_delay_timer > 500){
+        bolster.pressure_measure_enable = 1;
+        bolster.pressure_measure_delay_timer_start = 0;
+      }
     }
-    else if(observedpressure > 730){
-      digitalWrite(COMP, LOW);
+    else if(bolster.pressure_measure_enable && !bolster.backrest_over_pres){
+      if(observedpressure < 700){
+        digitalWrite(COMP, HIGH);
+        digitalWrite(VENT, LOW);
+        digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
+        digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
+        digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
+        digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
+      }
+      else if(observedpressure > 730){
+        digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
+        digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+        digitalWrite(COMP, LOW);
+        bolster.backrest_over_pres = 1;
+        bolster.pressure_measure_enable = 0; //just hit overpressure on the backrest so will need to delay the pressure measurement if doing cushion
+      }
     }
+    //else if(bolster.backrest_over_pres){
+     // digitalWrite(COMP, LOW);
+    //}
   }
   else if(dpad.backward){//this means backrestdown
     digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
@@ -643,6 +703,7 @@ void bolsterfunction(){
     digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
     digitalWrite(COMP, LOW);
     digitalWrite(VENT, HIGH);
+    bolster.backrest_over_pres = 0;
   }
   if(!dpad.up && !dpad.down && !dpad.forward && !dpad.backward){
     digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
@@ -651,5 +712,6 @@ void bolsterfunction(){
     digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
     digitalWrite(COMP, LOW);
     digitalWrite(VENT, LOW);
+    bolster.pressure_measure_delay_timer_start = 0;
   }
 }
