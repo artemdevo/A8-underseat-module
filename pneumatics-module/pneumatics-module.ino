@@ -41,8 +41,6 @@ struct SavedLumbarValues {
 };
 
 struct LumbarStruct {
-  //byte position;//which bladder to choose. not using this?
-  //int pressure;//how much pressure in the bladder. not using this?
   byte on; //on or off. identifies that it is in the lumbar mode
   int desiredpressure; //the value received in the CAN message
   byte desiredposition; //the value received in the CAN message
@@ -93,12 +91,6 @@ byte rxBuf[8];
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~ARRAYS TO ORGANIZE SPECIFIC PINS TO SET PINMODE AND OUTPUT LOW WHEN NOT IN  USE~~~~~~~~~~~~~~~~~
 byte pins[22]={10, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 34, 36, 38, 40, 42, 44, 46};
-//byte bladderpins[20] = {18, 19, 20, 21, 22, 24, 25, 26, 27, 28, 29, 30, 31, 34, 36, 38, 40, 42, 44, 46};
-
-
-
-
-
 
 ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -116,10 +108,6 @@ void lumbarAdjustfunction();
 void massagefunction();
 
 void massagebladderpinsetfunction();
-
-
-
-
 
 void setup() {
   
@@ -258,31 +246,36 @@ void loop() {
 
 
 
-
-
   if(massage.on){
+    lumbar.on = 0;//make sure that these are definitely off
     massagefunction();
   }
   else{ //if massage is off, set all massage pins low. this is so that whatever was on from the last massage state is set back to 0
     for(int i= 0; i < 10; i++ ){
       digitalWrite(massage.bladderpins[i],LOW);
-      digitalWrite(COMP, LOW);
-      digitalWrite(VENT, LOW);
+      //digitalWrite(COMP, LOW);
+      //digitalWrite(VENT, LOW);
     }
   }
   
-  
- /* if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
+  if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
+  massage.on = 0;//make sure this is definitely off
   lumbarAdjustfunction();
   }
   else{
     //Serial.println("lumbar off!~~~~~~~~~~~~~~~~~");
     for(int i = 0; i < 6; i++){
       digitalWrite(lumbar.pins[i], LOW);
-      digitalWrite(COMP, LOW);
-      digitalWrite(VENT, LOW);
+      //digitalWrite(COMP, LOW);
+      //digitalWrite(VENT, LOW);
     }
-  }*/
+  }
+
+  if(!massage.on && !lumbar.on){//if neither are on, make sure that these two are written low
+    digitalWrite(COMP, LOW);
+    digitalWrite(VENT, LOW);
+  }
+
 }
 
 ///NEED TO WRITE A STATEMENT TO SET COMP LOW IF MASSAGE AND BOLSTERS AND LUMBAR ARE NOT ACTIVE

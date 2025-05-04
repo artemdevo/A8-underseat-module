@@ -196,7 +196,7 @@ void loop() {
   /////-----------------------------------------------------------------------------------
 
   ////////------////////////////////////////////-massage button and massage function stuff. adjustments to the massage will be done in a state
-  if(massage.btnpressed && !massage.transition && truestate != 1 && truestate != 4){//going to need to write the specific states that lumbar and bolster adjustment are assigned to
+  if(massage.btnpressed && !massage.transition && truestate != 2 && truestate != 3){//going to need to write the specific states that lumbar and bolster adjustment are assigned to
     
     if(massage.on){//if button is pressed with massage on
       massage.on = 0;
@@ -204,8 +204,8 @@ void loop() {
       //Serial.println("massage turned off");
     }
     else if(!massage.on){//start the massage when button pressed measure time start
-      truestate = 3; //switch to massage state 
-      voicestate = 3; //play voice message. GOING TO CHANGE THIS TO SAY "MASSAGE ON", NOT JUST THAT ITS IN THE MASSAGE STATE
+      truestate = 1; //switch to massage state 
+      voicestate = 1; //play voice message. GOING TO CHANGE THIS TO SAY "MASSAGE ON", NOT JUST THAT ITS IN THE MASSAGE STATE
       messageplaycount = 0; //make sure sound plays
       massage.on = 1;
       massage.transition = 1;
@@ -242,18 +242,8 @@ void loop() {
   }
   ////////////-------------------------------------------------END OF MASSAGE BUTTON AND FUNCTION STUFF---------------------------------
 
-  ///////////////------------------------------------------------state 1-lumbar
-          ////NEED TO TURN OFF MASSAGE IN WHICHEVER STATE I END UP USING FOR THIS. SAME AS FOR BOLSTER ADJUSTMENT!!!!!!!!!!!!!!!!!!!!!!!!!
-  if(truestate ==1){
-    massage.on = 0;//must make sure massage is not on when in this state, no massage messages being transmitted
-    //bolster.on = 0; NO NEED FOR THIS. IT JUST SENDS CAN MESSAGES BASED ON THE POSITION OF THE DPAD. SAME AS LUMBAR
-    lumbarAdjustfunction();
-  }
-
-
-
-  ////////////////////---------------------------------------------------when in state 2? can control motors
-  if(truestate == 2){
+   ///////////////////////////////////////////////////////////////////////STATE 0-SEAT MOTOR CONTROLS////////////////////////////////////////////
+  if(truestate == 0){
     seatmotorAdjustfunction();
   }
   else{//if the current state is not 2 (or whatever state), make sure that the motors cannot move 
@@ -262,15 +252,35 @@ void loop() {
     digitalWrite(4, LOW);
     digitalWrite(5, LOW);
   }
-  //////////////////////////-----------------------------------------------
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-  ///////-----------------------state for massage setting adjustment. the massage itself is turned on by the massage button statement above. the state is to change values and send CAN messages
+   /////////////////state 1 for massage setting adjustment. the massage itself is turned on by the massage button statement above. the state is to change values and send CAN messages
   ////SHOULD THERE BE VOICE MESSAGES HERE AS I CHANGE THE INTENSITY/MODE???
-  if(truestate == 3){
+  if(truestate == 1){
     massageAdjustfunction();
   }
 
-  /////////-------------------------------------------------
+  ///////////////////////////////////////////////////////////////////////////////////////-----------------------------------
+
+  /////////////////////////////////////////////----------------------------------------state 2-lumbar
+          ////NEED TO TURN OFF MASSAGE IN WHICHEVER STATE I END UP USING FOR THIS. SAME AS FOR BOLSTER ADJUSTMENT!!!!!!!!!!!!!!!!!!!!!!!!!
+  if(truestate ==2){
+    massage.on = 0;//must make sure massage is not on when in this state, no massage messages being transmitted
+    //bolster.on = 0; NO NEED FOR THIS. IT JUST SENDS CAN MESSAGES BASED ON THE POSITION OF THE DPAD. SAME AS LUMBAR
+    lumbarAdjustfunction();
+  }
+//////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////STATE 3 SIDE BOLSTER ADJUSTMENT//////////////////////////////////
+  if(truestate == 3){
+
+
+  }
+  else{
+
+  }
+/////////////////////////////////////
+ 
 
   /////////------------------------------------switch case for playing messages when a state change happens 
 
@@ -305,29 +315,7 @@ void loop() {
   }
   /////----------------------------------------------------
 
-  ////-----------------------------------------for testing only, make a thing that prints the truestate and voice state once per second
-  //Serial.println(millis()-massage.starttime);
- // time2 = millis();
-
-  //if((time2-time1)>200)
-  
-    
-  //Serial.print(voicestate);
-  //Serial.print(" ");
-  //Serial.print(truestate);
-  //Serial.print(" ");
-  //Serial.print(bezelring.transition);
-  //Serial.print(" ");
-  //Serial.print(massage.on);
-  //Serial.print(" ");
- // Serial.print(lumbar.desiredpressure);
-  //Serial.print(" ");
-  //Serial.print(lumbar.desiredposition);
-  //Serial.print(" ");
-  
-  //Serial.println(millis());
-
-  //time1 = time2; 
+ 
   
 }
 
