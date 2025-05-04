@@ -132,11 +132,9 @@ void setup() {
       EEPROM.put(0, 1);
       savedmassagevalues.mode = 0;
       savedmassagevalues.intensity = 0;
-      Serial.println("reset saved values!");
+      //Serial.println("reset saved values!");
     }
-  Serial.println(savedmassagevalues.mode);
-  Serial.println(savedmassagevalues.intensity);
-
+  
   massage.mode = savedmassagevalues.mode;
   massage.intensity = savedmassagevalues.intensity;
   
@@ -151,21 +149,19 @@ void loop() {
   dpad.fb_read = analogRead(D_PAD_FB);
   dpad.ud_read = analogRead(D_PAD_UD);
 
-  bezelring.up = bezelring.read>470 && bezelring.read<800;
-  bezelring.down = bezelring.read<470;
-  bezelring.released = bezelring.read>900;
+  bezelring.up = bezelring.read > 470 && bezelring.read < 800;
+  bezelring.down = bezelring.read < 470;
+  bezelring.released = bezelring.read > 900;
 
-  massage.btnpressed = massage.btn_read<500;
-  massage.btnreleased = massage.btn_read>700;
+  massage.btnpressed = massage.btn_read < 500;
+  massage.btnreleased = massage.btn_read > 700;
 
-  dpad.forward = dpad.fb_read>470 && dpad.fb_read<800;
-  dpad.back = dpad.fb_read<470;
-  dpad.up = dpad.ud_read>470 && dpad.ud_read<800;
-  dpad.down = dpad.ud_read<470;
-  //dpad.ud_released = dpad.ud_read>900;
+  dpad.forward = dpad.fb_read > 470 && dpad.fb_read < 800;
+  dpad.back = dpad.fb_read < 470;
+  dpad.up = dpad.ud_read > 470 && dpad.ud_read < 800;
+  dpad.down = dpad.ud_read < 470;
   
-
-////---------------------------------------------------------------------------------------------------going up when press up on the bezel ring
+////-----------------------------------------------------going up when press up on the bezel ring
   if(bezelring.up && !bezelring.transition){//if up on the bezel ring is pressed, increase state by 1 
     if(voicestate == 3){
       voicestate = 0; //if at maximum state, go back to 0
@@ -207,12 +203,13 @@ void loop() {
     if(massage.on){//if button is pressed with massage on
       massage.on = 0;
       massage.transition = 1;
-      //Serial.println("massage turned off");
+      myDFPlayer.play(6);//"massage off"
     }
     else if(!massage.on){//start the massage when button pressed measure time start
       truestate = 1; //switch to massage state 
-      voicestate = 1; //play voice message. GOING TO CHANGE THIS TO SAY "MASSAGE ON", NOT JUST THAT ITS IN THE MASSAGE STATE
-      messageplaysupress = 0; //make sure sound plays
+      voicestate = 1; //
+      messageplaysupress = 1; //need to supress the voice state message to play the message "massage on"
+      myDFPlayer.play(5);//"massage on"
       massage.on = 1;
       massage.transition = 1;
       massage.starttime = millis();
@@ -242,7 +239,8 @@ void loop() {
     }
 
     if((millis()-massage.starttime)>(1000L*60L*10L)){//60*10 seconds
-    massage.on = 0;
+      massage.on = 0;
+      myDFPlayer.play(6);//"massage off"
     }
     
   }
@@ -401,7 +399,20 @@ void massageAdjustfunction(){
     if(massage.intensity < 2){
       massage.intensity++;//only increment if the value is not already 2
       EEPROM.put(1, massage.intensity); //immediately save the new value to memory
-      Serial.println("Intensity written to memory");
+      switch(massage.intensity){
+        case 0:{
+          myDFPlayer.play(10);//"low intensity"
+        }
+        break;
+        case 1:{
+          myDFPlayer.play(11);//"medium intensity"
+        }
+        break;
+        case 2:{
+          myDFPlayer.play(12);//"high intensity"
+        }
+        break;
+      }
     }
     dpad.transition = 1;
   }
@@ -409,7 +420,20 @@ void massageAdjustfunction(){
     if(massage.intensity > 0){
       massage.intensity--;//only decrement if the value is not already 0
       EEPROM.put(1, massage.intensity);//immediately save the new value to memory
-      Serial.println("Intensity written to memory");
+      switch(massage.intensity){
+        case 0:{
+          myDFPlayer.play(10);//"low intensity"
+        }
+        break;
+        case 1:{
+          myDFPlayer.play(11);//"medium intensity"
+        }
+        break;
+        case 2:{
+          myDFPlayer.play(12);//"high intensity"
+        }
+        break;
+      }
     }
     dpad.transition = 1;
   }
@@ -421,7 +445,20 @@ void massageAdjustfunction(){
       massage.mode++;
     }
     EEPROM.put(0, massage.mode);
-    Serial.println("Mode written to memory");
+    switch(massage.mode){
+        case 0:{
+          myDFPlayer.play(7);//"wave program"
+        }
+        break;
+        case 1:{
+          myDFPlayer.play(8);//"shoulder program"
+        }
+        break;
+        case 2:{
+          myDFPlayer.play(9);//"lumbar program"
+        }
+        break;
+      }
     dpad.transition = 1;
   }
   else if(dpad.back && !dpad.transition){
@@ -432,8 +469,22 @@ void massageAdjustfunction(){
       massage.mode--;
     }
     EEPROM.put(0, massage.mode);
-    Serial.println("Mode written to memory");
     dpad.transition = 1;
+
+    switch(massage.mode){
+      case 0:{
+        myDFPlayer.play(7);//"wave program"
+      }
+      break;
+      case 1:{
+        myDFPlayer.play(8);//"shoulder program"
+      }
+      break;
+      case 2:{
+        myDFPlayer.play(9);//"lumbar program"
+      }
+      break;
+    }
   }
 }
 
