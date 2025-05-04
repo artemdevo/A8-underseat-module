@@ -73,17 +73,24 @@ struct DPadStruct{
   int ud_read;
 };
 
+struct BolsterStruct{
+  byte data[4];
+  byte cushionup;
+  byte cushiondown;
+  byte backrestup;
+  byte backrestdown;
+  unsigned long messagetime;
+};
+
 BezelStruct bezelring;
 DPadStruct dpad;
 LumbarStruct lumbar;
 SavedMassageValues savedmassagevalues;
 MassageStruct massage;
+BolsterStruct bolster;
 
 SoftwareSerial softSerial(/*rx =*/6, /*tx =*/7);//ON THE UNO THIS NEEDS TO BE RX 6 AND TX 7
 DFRobotDFPlayerMini myDFPlayer;
-
-unsigned long int time1 = 0; //for testing 3/28/2025- i think int will work? there will be overflow but I think it will turn out ok
-unsigned long int time2;// for testing 3/28/2025
 
 byte ignit[4] = {0x00, 0x00, 0xff, 0xff};
 byte hvac[3]= {0x0, 0xC0, 0x0};
@@ -92,6 +99,7 @@ byte hvac[3]= {0x0, 0xC0, 0x0};
 void seatmotorAdjustfunction();
 void lumbarAdjustfunction();
 void massageAdjustfunction();
+void bolsterAdjustfunction();
 
 MCP_CAN CAN0(10); //CS is pin 10 on arduino uno
 
@@ -161,7 +169,7 @@ void loop() {
 
 ////---------------------------------------------------------------------------------------------------going up when press up on the bezel ring
   if(bezelring.up && !bezelring.transition){//if up on the bezel ring is pressed, increase state by 1 
-    if(voicestate == MAX_STATE){
+    if(voicestate == 3){
       voicestate = 0; //if at maximum state, go back to 0
     }
     else{
@@ -173,7 +181,7 @@ void loop() {
   /////-----------------------------------------------------------------------------------------------------going down when pressing down on bezel ring
   else if(bezelring.down && !bezelring.transition){//if down on the bezel ring is pressed, decrease state by 1 
     if(voicestate == 0){
-      voicestate = MAX_STATE; //if at 0 state, loop back around to highest state
+      voicestate = 3; //if at 0 state, loop back around to highest state
     }
     else{
     voicestate--; //play voice message for whatever state you just changed to, probably make it a switch case?
@@ -196,7 +204,7 @@ void loop() {
   /////-----------------------------------------------------------------------------------
 
   ////////------////////////////////////////////-massage button and massage function stuff. adjustments to the massage will be done in a state
-  if(massage.btnpressed && !massage.transition && truestate != 2 && truestate != 3){//going to need to write the specific states that lumbar and bolster adjustment are assigned to
+  if(massage.btnpressed && !massage.transition){//going to need to write the specific states that lumbar and bolster adjustment are assigned to
     
     if(massage.on){//if button is pressed with massage on
       massage.on = 0;
@@ -273,12 +281,10 @@ void loop() {
 
 ///////////////////////////////////////////STATE 3 SIDE BOLSTER ADJUSTMENT//////////////////////////////////
   if(truestate == 3){
-
-
+    massage.on = 0;
+    bolsterAdjustfunction();
   }
-  else{
-
-  }
+  
 /////////////////////////////////////
  
 
@@ -306,12 +312,8 @@ void loop() {
         myDFPlayer.play(4);
       }
       break;
-      case 4:{
-        myDFPlayer.play(5);
-      }
-      break;
     }
-    messageplaycount++;
+    messageplaycount = 1;
   }
   /////----------------------------------------------------
 
@@ -436,3 +438,51 @@ void massageAdjustfunction(){
     dpad.transition = 1;
   }
 }
+
+void bolsterAdjustfunction(){//very similar to the one for lumbar
+
+  if(dpad.up){//if up is pressed on the d pad
+        bolster.cushionup = 1;//request to increase lumbar position
+        bolster.cushiondown = 0;
+  }
+  else if(dpad.down){//if down is pressed on the d pad
+    bolster.cushionup = 0;
+    bolster.cushiondown = 1;//request to decrease lumbar position
+      
+  }
+  else{//if neither of these are true, D_PAD_UD must be high,
+    bolster.cushionup = 0;
+    bolster.cushiondown = 0;
+  }
+  if(dpad.forward){//if forward is pressed on the d pad
+    bolster.backrestup = 1;
+    bolster.backrestdown = 0;
+  }
+  else if(dpad.back){//if back is pressed on the d pad
+    bolster.backrestup = 0;
+    bolster.backrestdown = 1;
+  }
+  else{
+    bolster.backrestup = 0;
+    bolster.backrestdown= 0;
+  }
+
+  bolster.data[0] = bolster.cushionup;
+  bolster.data[1] = bolster.cushiondown;
+  bolster.data[2] = bolster.backrestup;
+  bolster.data[3] = bolster.backrestdown;
+
+  if(millis()-bolster.messagetime >100){//every 100 ms, send a message with the desired d pad values
+    
+    CAN0.sendMsgBuf(0x751, 0, 4, bolster.data);
+    bolster.messagetime = millis();
+  }
+
+}
+
+
+
+
+
+
+

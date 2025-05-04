@@ -33,6 +33,13 @@
 #define LOWERMOST_RIGHT_BLD 24
 //////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+//////~~~~~~~~~~~~~~~~~~~~~~~~~~~DEFINES FOR BOLSTERS~~~~~~~~~~~~~~~~~
+#define LEFT_CUSHION_BOLSTER 29
+#define RIGHT_CUSHION_BOLSTER 31
+#define LEFT_BACKREST_BOLSTER 25
+#define RIGHT_BACKREST_BOLSTER 27
+//////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 struct SavedLumbarValues {
   byte byte0;
   byte byte1;
@@ -80,7 +87,11 @@ struct MassageStruct{
   byte bladderpins[10] = {28, 34, 26, 36, 38, 30, 19, 40, 24, 21};//THESE ARE JUST THE BLADDERS
   unsigned long delaytime;
   unsigned long statestarttime = 1000;
-  unsigned long lastmessagetimer;
+};
+
+struct BolsterStruct{
+  byte on;
+  byte pins[4] = {29, 31, 25, 27};
 };
 
 int observedpressure;//variable to store pressure reads
@@ -100,6 +111,7 @@ BladderStruct bladder;
 DPadStruct dpad;
 MassageStruct massage;
 SavedMassageValues savedmassagevalues;
+BolsterStruct bolster;
 
 MCP_CAN CAN0(53);   
 
@@ -108,6 +120,8 @@ void lumbarAdjustfunction();
 void massagefunction();
 
 void massagebladderpinsetfunction();
+
+void bolsterfunction();
 
 void setup() {
   
@@ -121,13 +135,9 @@ void setup() {
   CAN0.setMode(MCP_NORMAL);
   pinMode(CAN0_INT, INPUT);
 
-  //digitalWrite(VENT, HIGH);//these initialized vents help the reservoir pressure start lower when massaging, less strain on compressor?
-  //delay(1000);
- //digitalWrite(VENT, LOW);
+ 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~LUMBAR STUFF~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  //for(int i = 0; i < 8; i++){
-   // pinMode(lumbarpins[i], OUTPUT);
-  //}
+
 
   savedlumbarvalues.byte0= EEPROM.read(0);//get the saved lumbar values from eeprom on startup
   savedlumbarvalues.byte1 = EEPROM.read(1);
@@ -175,7 +185,6 @@ void loop() {
     massage.mode = rxBuf[0];//WILL HAVE WAVE, STRETCH, AND LUMBAR (SHORTER STRETCH) MASSAGE MODES
     massage.intensity = rxBuf[1];//1 to 3"HIGH" WILL BE 2700 MS DELAY. "MEDIUM" IS 2000 MS DELAY, "LOW" IS 1000 MS DELAY
     dpad.lastmessagetimer = millis();
-    //massage.lastmessagetimer = millis();
   }
 
 
@@ -188,21 +197,21 @@ void loop() {
       //lumbar.on is set by the other statements within its own function. dpad buttons must be pressed.
         massage.on = 0;
         massage.firststate = 1;//reset statement for the first time massage starts
-        //bolster.on = 0;
+        bolster.on = 0;
       //}
     }
     break;
     case 0x650:{//0x650 (massage)
       massage.on = 1;//unlike the other cases, if messages are being received at all, that means massage is on 
-      
       lumbar.on = 0;
-      //bolster.on = 0;
+      bolster.on = 0;
     }
     break;
     case 0x751:{//if the newest received frame has an id of 0x751 (side bolster adjustment)
       massage.on = 0;//bolster.on will be turned on depending on the dpad button presses
       massage.firststate = 1;//resetting this to 1 for the next time i use massage
       lumbar.on = 0;
+      bolster.on = 1;
     }
     break;
   }
@@ -211,9 +220,7 @@ void loop() {
     lumbar.on = 0;
     massage.on = 0;
     massage.firststate = 1;//reseting this to 1 so that the next time massage is turned on, we go through the first state time measurement
-    
-    //Serial.println("CAN wait timeout");
-    //bolster.on = 0;
+    bolster.on = 0;
   }
   ///////////////////////////LUMBAR SPECIFIC CONTROLS////////////////////////////////////////////////////////
   if(dpad.up && !dpad.transition && rxId == 0x707){
@@ -244,8 +251,6 @@ void loop() {
   }
   /////////////////////////////////////////////////////END OF LUMBAR SPECIFIC CONTROLS///////////////////////////////////////////
 
-
-
   if(massage.on){
     lumbar.on = 0;//make sure that these are definitely off
     massagefunction();
@@ -253,8 +258,7 @@ void loop() {
   else{ //if massage is off, set all massage pins low. this is so that whatever was on from the last massage state is set back to 0
     for(int i= 0; i < 10; i++ ){
       digitalWrite(massage.bladderpins[i],LOW);
-      //digitalWrite(COMP, LOW);
-      //digitalWrite(VENT, LOW);
+      
     }
   }
   
@@ -266,21 +270,28 @@ void loop() {
     //Serial.println("lumbar off!~~~~~~~~~~~~~~~~~");
     for(int i = 0; i < 6; i++){
       digitalWrite(lumbar.pins[i], LOW);
-      //digitalWrite(COMP, LOW);
-      //digitalWrite(VENT, LOW);
+     
     }
   }
 
-  if(!massage.on && !lumbar.on){//if neither are on, make sure that these two are written low
+  if(bolster.on){
+   bolsterfunction();
+  }
+  else{
+    for(int i = 0; i < 4; i++){
+      digitalWrite(bolster.pins[i], LOW);
+    }
+  }
+
+  if(!massage.on && !lumbar.on && !bolster.on){//if none are on, make sure that these two are written low
     digitalWrite(COMP, LOW);
+    
+  }
+  if(!massage.on && !bolster.on){//lumbar has no provisions to switch the normal vent, so make it only dependent on massage and bolster
     digitalWrite(VENT, LOW);
   }
 
 }
-
-///NEED TO WRITE A STATEMENT TO SET COMP LOW IF MASSAGE AND BOLSTERS AND LUMBAR ARE NOT ACTIVE
-
-
 
 
 void lumbarAdjustfunction(){
@@ -327,7 +338,6 @@ void lumbarAdjustfunction(){
         }
         break;
       }
-      Serial.println("opening vent");
     }
     else if (observedpressure - lumbar.desiredpressure <= 0){ //if the pressure is more than 0 less than the desired
       switch(lumbar.desiredposition){
@@ -344,7 +354,6 @@ void lumbarAdjustfunction(){
         }
         break;
       }
-      Serial.println("closing vent");
     }
 
     if(observedpressure - lumbar.desiredpressure >= 0){//if the reservoir pressure is more than 0 over desired, turn comp off                                          
@@ -358,7 +367,6 @@ void lumbarAdjustfunction(){
       if(!bladder.exittimerenable){//if this is the first time through this if statement since this pressure condition has been true, 
         bladder.exittimerstarttime = millis(); //if the reservoir is at the desired pressure, that means the lumbar bladder must be close as well, so start a counter
         bladder.exittimerenable = 1;//so we don't refresh exitcountertime
-        Serial.println("is the exit start time being refreshed?");
       }
     }
     else{
@@ -371,8 +379,6 @@ void lumbarAdjustfunction(){
         bladder.exittimerenable = 0;
         lumbar.on = 0;
         EEPROM.put(2, lumbar.desiredposition);//write the desired bladder position to saved address;
-        Serial.println("Bladder position saved to eeprom!");
-        
       }
     }
   }
@@ -390,7 +396,6 @@ void lumbarAdjustfunction(){
     }
     
     if(dpad.backward){
-      Serial.println("venting to lower pressure");
       switch(lumbar.desiredposition){
         case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
         digitalWrite(LOW_LUMBAR_VNT, HIGH);
@@ -432,13 +437,11 @@ void lumbarAdjustfunction(){
       lumbar.desiredpressure = observedpressure;
       lumbar.pressuresavetimerenable = 0;
       lumbar.on = 0;
-      Serial.println("Saving pressure value to EEPROM!");
     }
   }
   ////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~`  
 }
   
-
 void massagefunction(){
   ///////////////////////////////////////////checks if massage has just been started so that we can reset the state position and set the start time for the first state
   if(massage.firststate){
@@ -595,4 +598,58 @@ void massagebladderpinsetfunction(){
   massage.pinstosethigh[i] = 0; //finally, reset the pinstosethigh array back to 0;
  }
 
+}
+
+void bolsterfunction(){
+ if(dpad.up){//this means cushionup
+    if(observedpressure < 700){
+      digitalWrite(COMP, HIGH);
+      digitalWrite(VENT, LOW);
+      digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
+      digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
+      digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
+      digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+    }
+    else if(observedpressure > 730){
+      digitalWrite(COMP, LOW);
+    }
+  }
+  else if(dpad.down){//this means cushiondown
+    digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
+    digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
+    digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
+    digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+    digitalWrite(COMP, LOW);
+    digitalWrite(VENT, HIGH);
+  }
+
+  if(dpad.forward){//this means backrestup
+  if(observedpressure < 700){
+      digitalWrite(COMP, HIGH);
+      digitalWrite(VENT, LOW);
+      digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
+      digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
+      digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
+      digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
+    }
+    else if(observedpressure > 730){
+      digitalWrite(COMP, LOW);
+    }
+  }
+  else if(dpad.backward){//this means backrestdown
+    digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
+    digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
+    digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
+    digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
+    digitalWrite(COMP, LOW);
+    digitalWrite(VENT, HIGH);
+  }
+  if(!dpad.up && !dpad.down && !dpad.forward && !dpad.backward){
+    digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
+    digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
+    digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
+    digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+    digitalWrite(COMP, LOW);
+    digitalWrite(VENT, LOW);
+  }
 }
