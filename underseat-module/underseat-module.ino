@@ -114,7 +114,7 @@ void setup() {
  
   myDFPlayer.begin(softSerial, /*isACK = */true, /*doReset = */true);//reset needs to be true for this shit to work on external power
   
-  myDFPlayer.volume(15);  //Set volume value. From 0 to 30
+  myDFPlayer.volume(23);  //Set volume value. From 0 to 30
   
   
   

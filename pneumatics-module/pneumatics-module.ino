@@ -606,9 +606,9 @@ void massagebladderpinsetfunction(){
 }
 
 void bolsterfunction(){
-  if(!bolster.backrest_over_pres && !bolster.cushion_over_pres){
-    bolster.pressure_measure_enable = 1;//if neither upper or lower bolsters have hit max pressure, can immediately start controls by measuring pressure
-  }
+  //if(!bolster.backrest_over_pres && !bolster.cushion_over_pres){
+   // bolster.pressure_measure_enable = 1;//if neither upper or lower bolsters have hit max pressure, can immediately start controls by measuring pressure
+  //}
   
  if(dpad.up){//this means cushionup
     if(!bolster.pressure_measure_enable && !bolster.cushion_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
