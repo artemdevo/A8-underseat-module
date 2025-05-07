@@ -10,9 +10,11 @@
 #define D_PAD_FB A2
 #define BEZ_RNG A3
 
-byte voicestate = 0; //use this just for voice messages
-byte truestate = 0;
-byte messageplaysupress;
+struct SeatStates{
+  byte state;
+  byte statebuffer[2];
+  byte state_message_play_supress;
+};
 
 struct SavedMassageValues {
   byte mode;
@@ -70,6 +72,7 @@ struct BolsterStruct{
   unsigned long messagetime;
 };
 
+SeatStates seat;
 BezelStruct bezelring;
 DPadStruct dpad;
 LumbarStruct lumbar;
@@ -87,6 +90,7 @@ void seatmotorAdjustfunction();
 void lumbarAdjustfunction();
 void massageAdjustfunction();
 void bolsterAdjustfunction();
+void playStatemessages();
 
 MCP_CAN CAN0(10); //CS for SPI is pin 10 on arduino uno. sets up the SPI interface with the the CAN module
 
@@ -106,7 +110,7 @@ void setup() {
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);//CAN initializing function. set to 500 KBPS because that is the speed the seat module CAN is running on (need one speed sent across the bus)
   CAN0.setMode(MCP_NORMAL);//not sure about this function but it is some other initializing thing and it is needed
   
-  messageplaysupress = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
+  //messageplaysupress = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
   
 //////////////////////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MASSAGE STUFF INITIALIZING STUFF~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   savedmassagevalues.mode = EEPROM.read(0);//read the values from EEPROM
@@ -147,36 +151,37 @@ void loop() {
   
 //////////////////////////////////////INCREASING THE STATE WHEN PRESSING UP ON THE BEZEL RING//////////////////////////////////////////////
   if(bezelring.up && !bezelring.transition){//if up on the bezel ring is pressed, increase state by 1 
-    if(voicestate == 3){
-      voicestate = 0; //if at maximum state, go back to 0
+    if(seat.state == 3){
+      seat.state = 0; //if at maximum state, go back to 0
     }
     else{
-    voicestate++; //play voice message for whatever state you just changed to, probably make it a switch case?
+    seat.state++; //play voice message for whatever state you just changed to, probably make it a switch case?
     }
     bezelring.transition = 1;
-    messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played 
+    //messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played 
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DECREASING THE STATE WHEN PRESSING DOWN ON THE BEZEL RING~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   else if(bezelring.down && !bezelring.transition){//if down on the bezel ring is pressed, decrease state by 1 
-    if(voicestate == 0){
-      voicestate = 3; //if at 0 state, loop back around to highest state
+    if(seat.state == 0){
+      seat.state = 3; //if at 0 state, loop back around to highest state
     }
     else{
-    voicestate--; //play voice message for whatever state you just changed to, probably make it a switch case?
+    seat.state--; //play voice message for whatever state you just changed to, probably make it a switch case?
     }; 
     bezelring.transition = 1; //prep for the state transition
     //make sure transitionup is off
-    messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played
+    //messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played
   }
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   ////////////////////////////////////////////////WHEN BEZEL RING, DPAD, AND MASSAGE BUTTON ARE RELEASED//////////////////////////////////////////////////////////
   else if(bezelring.released){//finally, if the bezel ring is released to its original position, set the real state equal to the voice state, which is used to play voice messages
-    truestate = voicestate;
     bezelring.transition = 0;
   }
+
+  playStatemessages(); //PLAYING VOICE MESSAGES WHEN A STATE CHANGE HAPPENS WITH THE BEZEL RING
 
   if(!dpad.up && !dpad.down && !dpad.forward && !dpad.back){//if no button is being pressed on the dpad
     dpad.transition = 0;//set the transition byte back to 0, so that things can change when a d pad button press is detected again
@@ -194,15 +199,16 @@ void loop() {
       myDFPlayer.play(6);//"massage off"
     }
     else if(!massage.on){//if button is pressed with massage off
-      truestate = 1; //switch to massage state so that adjustments can be made with the d pad
-      voicestate = 1; //have to change this even though the state 1 voice message won't be played
-      messageplaysupress = 1; //need to supress the voice state message to play the message "massage on"
+      seat.state = 1; //switch to massage state so that adjustments can be made with the d pad
+      //voicestate = 1; //have to change this even though the state 1 voice message won't be played
+      seat.state_message_play_supress = 1; //need to supress the voice message to play the message "massage adjustment, press the massage button to start"
       myDFPlayer.play(5);//"massage on"
       massage.on = 1;
       massage.transition = 1;
       massage.starttime = millis();//start counting the time since massage started. massage will stop after 10 minutes. (or whatever is chosen)
     }
   }
+  
   massage.data[0] = massage.mode;//enter the massage values into a buffer to be sent over CAN. these values come from memory but are adjusted in the massage adjustment function
   massage.data[1] = massage.intensity;
 
@@ -219,7 +225,7 @@ void loop() {
   ////////////////////////////////////////////////END OF MASSAGE BUTTON AND CAN MESSAGE STUFF///////////////////////////////////////////////////////////////////////
 
    //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~STATE 0-SEAT MOTOR CONTROLS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if(truestate == 0){
+  if(seat.state == 0){
     seatmotorAdjustfunction();//if we are in state 0, the starting state. 
   }
   else{//if the current state is not 0 make sure that the motors cannot move by writing the 2 channel motor driver controller inputs to low
@@ -232,49 +238,62 @@ void loop() {
 
    /////////////////STATE 1 MASSAGE VALUE ADJUSMENT.THE MASSAGE ITSELF IS TURNED ON BY THE MASSAGE BUTTON AND CAN MESSAGE STATEMENT ABOVE////////////////////////////
     //////////////MASSAGE CAN ALSO OPERATE IN STATE 0 (BUT NOT 2 OR 3 BECAUSE THEY USE PNEUMATICS) BUT ADJUSTMENTS CAN ONLY BE DONE IN STATE 1//////////////////
-  if(truestate == 1){
+  if(seat.state == 1){
     massageAdjustfunction();
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~STATE 2. LUMBAR ADJUSTMENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  if(truestate ==2){
+  if(seat.state ==2){
     massage.on = 0;//must make sure massage is not on when in this state because we need the pneumatics. no massage messages must be transmitted.
     lumbarAdjustfunction();
   }
   ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ////////////////////////////////////////////////////////STATE 3 SIDE BOLSTER ADJUSTMENT//////////////////////////////////////////////////////////////
-  if(truestate == 3){
+  if(seat.state == 3){
     massage.on = 0;//same as lumbar, must make sure the massage is not on when in this state because we need the pneumatics
     bolsterAdjustfunction();
   }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
  
-  ////~~~~~~~~~~~~~~~~~~~~~~~~~~~ SWITCH CASE FOR PAYING VOICE MESSAGES WHEN A STATE CHANGE HAPPENS WITH THE BEZEL RING~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
-  if(messageplaysupress==0){
-    switch(voicestate){
-      case 0:{
-        //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
-        myDFPlayer.play(1);
+}
+
+//void bezelRingread(){
+  //int bezel_measured_value = analogRead(BEZ_RING);
+
+//}
+
+
+void playStatemessages(){
+  seat.statebuffer[1] = seat.statebuffer[0];
+  seat.statebuffer[0] = seat.state;
+  if(seat.statebuffer[1] != seat.statebuffer[0]){
+    if(!seat.state_message_play_supress){
+      switch(seat.state){
+        case 0:{
+          //this is the basestate, so no voice message here on startup (would be annoying), but can activate massage from it
+          myDFPlayer.play(1);
+        }
+        break;
+        case 1:{
+          myDFPlayer.play(2);
+        }
+        break;
+        case 2:{
+          myDFPlayer.play(3);
+        }
+        break;
+        case 3:{
+          myDFPlayer.play(4);
+        }
+        break;
       }
-      break;
-      case 1:{
-        myDFPlayer.play(2);
-      }
-      break;
-      case 2:{
-        myDFPlayer.play(3);
-      }
-      break;
-      case 3:{
-        myDFPlayer.play(4);
-      }
-      break;
     }
-    messageplaysupress = 1;//so that a message is not repeated when in the same state
+    else{
+      seat.state_message_play_supress = 0;//set the voice message supress flag back to 0, it did its job
+    }
   }
-  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 }
 
 void seatmotorAdjustfunction(){//for adjusting the lower leg and upper back adjustments when in state 0

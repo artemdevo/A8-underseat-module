@@ -49,14 +49,14 @@ struct LumbarStruct {
   int desiredpressure; //the value received in the CAN message
   byte desiredposition; //the value received in the CAN message
   byte bladderchange;
-  byte pressuresavetimerenable;
-  long int pressuresavestarttime;
+  byte pressuresavetimerenable;//enable to start the timer to save and exit once dpad forward or backward is no longer being held in a lumbar bladder pressure change scenario. 
+  unsigned long pressuresavestarttime;
   byte pins[6] = {18, 22, 44, 20, 46, 42};
 };
 
 struct BladderStruct{//stuff specific for a bladder change
-  long int exittimerstarttime;
-  byte exittimerenable;
+  unsigned long exittimerstarttime;
+  byte exittimerenable;//enable to start the timer to save and exit once within a certain pressure theshold while doing a lumbar bladder change scenario
 };
 
 struct DPadStruct{
@@ -65,7 +65,7 @@ struct DPadStruct{
   byte forward;
   byte backward;
   byte transition;
-  long int lastmessagetimer;
+  unsigned long lastmessagetimer;
 };
 
 struct SavedMassageValues{
@@ -83,7 +83,7 @@ struct MassageStruct{
   byte pinstosethigh[10];
   byte bladderpins[10] = {28, 34, 26, 36, 38, 30, 19, 40, 24, 21};//THESE ARE JUST THE BLADDERS
   unsigned long delaytime;
-  unsigned long statestarttime = 1000;
+  unsigned long statestarttime; //this used to equal 1000. unsure why
 };
 
 struct BolsterStruct{
@@ -92,7 +92,7 @@ struct BolsterStruct{
   byte cushion_over_pres;
   byte backrest_over_pres;
   byte pressure_measure_enable;
-  byte pressure_measure_delay_timer_start;
+  byte pressure_measure_delay_timer_start;//enable value to start the timer that once expired will allow pressure measurements to be read (pressure measurement enable)
   unsigned long pressure_measure_delay_timer;
 };
 
@@ -179,9 +179,8 @@ void loop() {
   }
   switch(rxId){//THIS IS A SWITCH CASE I AM SPECIFICALLY USING TO SET THE MAIN FUNCTIONS ON OR OFF
     case 0x707:{
-      //lumbar.on is set by the other statements within its own function. dpad buttons must be pressed.
+      //lumbar.on is set by the other statements below. dpad buttons must be pressed.
       massage.on = 0;
-      massage.firststate = 1;//reset statement for the first time massage starts
       bolster.on = 0;
 
       /////////////////////////////CHANGING LUMBAR SPECIFIC CONTROLS BASED ON D PAD VALUE. THIS IS A PRECURSOR TO THE LUMBAR FUNCTION//////////////////////////////////////////
@@ -201,7 +200,7 @@ void loop() {
           lumbar.on = 1;//turn lumbar function on knowing the current desired bladder position and that we are doing a bladder change 
         }
       }
-      if(dpad.forward || dpad.backward){//if forward or backwards are being held down on the dpad and the received message is for lumbar
+      if(dpad.forward || dpad.backward){//if forward or backwards are pressed/were pressed last on the dpad and the received message is for lumbar
         lumbar.bladderchange = 0;//set bladder change to 0 if forward or backward is held down. this is an easy way to override a bladder change in progress
         lumbar.on = 1;//turn lumbar on knowing we are using the existing value of desired bladder position but we are changing the pressure in the bladder
       }
@@ -215,8 +214,7 @@ void loop() {
     }
     break;
     case 0x751:{//if the newest received frame has an id of 0x751 (side bolster adjustment)
-      massage.on = 0;//bolster.on will be turned on depending on the dpad button presses
-      massage.firststate = 1;//resetting this to 1 for the next time i use massage
+      massage.on = 0;
       lumbar.on = 0;
       bolster.on = 1;
     }
@@ -247,11 +245,14 @@ void loop() {
     for(int i= 0; i < 10; i++ ){
       digitalWrite(massage.bladderpins[i],LOW);
     }
+    massage.firststate = 1; //if massage is off, the next time it turns on will be starting at the first state
   }
   if(lumbar.on){//if a new CAN message for lumbar is received, lumbar.on will be set to 1. otherwise, it is 0
   lumbarAdjustfunction();
   }
   else{
+    lumbar.pressuresavetimerenable = 0;//reset both of these lumbar related timer enables in case they were set when lumbar was suddenly switched off
+    bladderchange.exittimerenable = 0;
     for(int i = 0; i < 6; i++){
       digitalWrite(lumbar.pins[i], LOW);
     }
@@ -263,6 +264,7 @@ void loop() {
     for(int i = 0; i < 4; i++){
       digitalWrite(bolster.pins[i], LOW);
     }
+    bolster.pressure_measure_delay_timer_start = 0;//reset the pressure measurement delay timer enable, in case it was on in the middle of the bolster function when the function suddenly switched
   }
   if(!massage.on && !lumbar.on && !bolster.on){//if none are on, make sure that these two are written low
     digitalWrite(COMP, LOW);
@@ -302,6 +304,7 @@ void lumbarAdjustfunction(){
   }
   ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~CODE FOR A BLADDER CHANGE. THIS IS WHEN THE DESIRED POSITION CHANGES FROM WHAT IT PREVIOUSLY WAS~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if(lumbar.bladderchange){
+    lumbar.pressuresavetimerenable = 0; //reset the pressure change state timer in case it was set when we suddenly started doing a bladder change
     /////////////////////////////////////////////////////////IF THE PRESSURE IN THE BLADDER WE ARE CHANGING TO IS TOO HIGH/////////////////////////////////////
     if(observedpressure - lumbar.desiredpressure >= 30){ //turn the specific bladder vent on if the pressure is more than 30 higher than desired. is this even possible to occur?
       switch(lumbar.desiredposition){
@@ -367,6 +370,7 @@ void lumbarAdjustfunction(){
 
   /////~~~~~~~~~~~~~~~~~~~~~~~~~~~CODE FOR CHANGING THE PRESSURE IN THE EXISTING DESIRED BLADDER~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   if(!lumbar.bladderchange){//if we aren't doing a bladder change and lumbar is on, it must be a pressure change in the same bladder
+    bladderchange.exittimerenable = 0; //reset the bladder change exit timer enable value, in case it was already set when a sudden pressure change interrupted it and it never set back to 0
     if(observedpressure > 730 || !dpad.forward){
       digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 730 or if we are pressing backward on the dpad; using this lower value because it takes forever to get there
     }
@@ -409,7 +413,7 @@ void lumbarAdjustfunction(){
     }
     ////////////////////////////////////////////END OF CODE FOR SWITCHING THE SPECIFIC DESIRED VENT SOLENOID ON OR OFF//////////////////////////////
 
-    if(dpad.forward || dpad.backward){//if either forward or backward are being pressed on the d pad
+    if(dpad.forward || dpad.backward){//if either forward or backward are being actively pressed on the d pad, not just the initial press to get us into a pressure change state
       lumbar.pressuresavestarttime = millis();//reset the save timer to the current time as long as pressure up or down (dpad.forward/dpad.backward)are being held on. 
       lumbar.pressuresavetimerenable = 1; //set the enable for the pressuresavetimer. this will remain on after forward or backward are no longer held down
     }
@@ -575,6 +579,7 @@ void massagebladderpinsetfunction(){//this function was created to simplify the 
 }
 
 void bolsterfunction(){
+  // PRESSURE MEASUREMENT IS INITIALLY DELAYED WHEN STARTING THIS FUNCTION FOR THE FIRST TIME, THAT IS ACCEPTABLE AND IS IGNORED. THE ONLY TIME IT REALLY MATTERS IS WHEN AN OVERPRESSURE FLAG IS SET
  if(dpad.up){//this means cushionup
     if(!bolster.pressure_measure_enable && !bolster.cushion_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
       digitalWrite(COMP, HIGH);//write stuff high and low based on wanting to increase the pressure in the cushion side bolsters
@@ -594,7 +599,7 @@ void bolsterfunction(){
     }
     else if(bolster.pressure_measure_enable && !bolster.cushion_over_pres){//if pressure measure enable has been set and the cushion max pressure flag isn't set
       if(observedpressure < 700){//if we are below 700 pressure, write everything to increase pressure on cushion bolsters
-        digitalWrite(COMP, HIGH);//are these really necessary? always go through the state of not being able to measure pressure first
+        digitalWrite(COMP, HIGH);
         digitalWrite(VENT, LOW);
         digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
         digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
@@ -621,7 +626,7 @@ void bolsterfunction(){
   }
   if(dpad.forward){//this means backrestup
     if(!bolster.pressure_measure_enable && !bolster.backrest_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
-      digitalWrite(COMP, HIGH);//write stuff to increase pressure in the backrest bolsters. are these really necessary? always go through the part of not being able to measure pressure first
+      digitalWrite(COMP, HIGH);//write stuff to increase pressure in the backrest bolsters.
       digitalWrite(VENT, LOW);
       digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
       digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
