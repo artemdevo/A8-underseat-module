@@ -372,21 +372,22 @@ void massageAdjustfunction(){//entire function is about changing the massage val
     if(massage.intensity < 2){
       massage.intensity++;//only increment if the value is not already 2
       EEPROM.put(1, massage.intensity); //immediately save the new value to memory
-      switch(massage.intensity){//then play a voice message of what the intensity value was changed to 
-        case 0:{
-          myDFPlayer.play(10);//"low intensity"
-        }
-        break;
-        case 1:{
-          myDFPlayer.play(11);//"medium intensity"
-        }
-        break;
-        case 2:{
-          myDFPlayer.play(12);//"high intensity"
-        }
-        break;
-      }
     }
+    switch(massage.intensity){//then play a voice message of what the intensity value was changed to, even if we are already at the max
+      case 0:{
+        myDFPlayer.play(10);//"low intensity"
+      }
+      break;
+      case 1:{
+        myDFPlayer.play(11);//"medium intensity"
+      }
+      break;
+      case 2:{
+        myDFPlayer.play(12);//"high intensity"
+      }
+      break;
+    }
+    
     dpad.transition = 1;
   }
   //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -396,20 +397,20 @@ void massageAdjustfunction(){//entire function is about changing the massage val
     if(massage.intensity > 0){
       massage.intensity--;//only decrement if the value is not already 0
       EEPROM.put(1, massage.intensity);//immediately save the new value to memory so that we choose this value when massage is started after a power cycle
-      switch(massage.intensity){//then play a voice message of what the intensity values was changed to 
-        case 0:{
-          myDFPlayer.play(10);//"low intensity"
-        }
-        break;
-        case 1:{
-          myDFPlayer.play(11);//"medium intensity"
-        }
-        break;
-        case 2:{
-          myDFPlayer.play(12);//"high intensity"
-        }
-        break;
+    }
+    switch(massage.intensity){//then play a voice message of what the intensity values was changed to, even if we are already at the minimum
+      case 0:{
+        myDFPlayer.play(10);//"low intensity"
       }
+      break;
+      case 1:{
+        myDFPlayer.play(11);//"medium intensity"
+      }
+      break;
+      case 2:{
+        myDFPlayer.play(12);//"high intensity"
+      }
+      break;
     }
     dpad.transition = 1;
   }

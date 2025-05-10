@@ -89,11 +89,6 @@ struct MassageStruct{
 struct BolsterStruct{
   byte on;
   byte pins[4] = {29, 31, 25, 27};
-  byte cushion_over_pres;
-  byte backrest_over_pres;
-  byte pressure_measure_enable;
-  byte pressure_measure_delay_timer_start;//enable value to start the timer that once expired will allow pressure measurements to be read (pressure measurement enable)
-  unsigned long pressure_measure_delay_timer;
 };
 
 int observedpressure;//variable to store pressure reads
@@ -263,8 +258,7 @@ void loop() {
   else{
     for(int i = 0; i < 4; i++){
       digitalWrite(bolster.pins[i], LOW);
-    }
-    bolster.pressure_measure_delay_timer_start = 0;//reset the pressure measurement delay timer enable, in case it was on in the middle of the bolster function when the function suddenly switched
+    } 
   }
   if(!massage.on && !lumbar.on && !bolster.on){//if none are on, make sure that these two are written low
     digitalWrite(COMP, LOW);
@@ -273,7 +267,12 @@ void loop() {
     digitalWrite(VENT, LOW);
   }
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~END OF PNEUMATICS FUNCTIONS AND PIN ASSIGNMENTS WHEN NOT IN USE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  if(observedpressure > 950){// I am worried about the possibility of the compressor getting stuck on. this addresses that. note that vent low must be written by something else
+    digitalWrite(VENT, HIGH);
+  }
+
 }
+
 
 void lumbarAdjustfunction(){
   switch(lumbar.desiredposition){//firstly, set the correct bladders to be vented using their specific vent and the correct one to be switched on based on the desired position
@@ -306,7 +305,7 @@ void lumbarAdjustfunction(){
   if(lumbar.bladderchange){
     lumbar.pressuresavetimerenable = 0; //reset the pressure change state timer in case it was set when we suddenly started doing a bladder change
     /////////////////////////////////////////////////////////IF THE PRESSURE IN THE BLADDER WE ARE CHANGING TO IS TOO HIGH/////////////////////////////////////
-    if(observedpressure - lumbar.desiredpressure >= 30){ //turn the specific bladder vent on if the pressure is more than 30 higher than desired. is this even possible to occur?
+    if(observedpressure - lumbar.desiredpressure >= 50){ //turn the specific bladder vent on if the pressure is more than 30 higher than desired. is this even possible to occur?
       switch(lumbar.desiredposition){
         case 0:{//if the desired position is 0 and the pressure is too high, the bottom vent is used
         digitalWrite(LOW_LUMBAR_VNT, HIGH);
@@ -343,13 +342,13 @@ void lumbarAdjustfunction(){
     }
     /////////////////////////////////////END OF IF THE PRESSURE IN THE BLADDER WE ARE CHANGING TO IS TOO LOW////////////////////////////////////////////////
 
-    if(observedpressure - lumbar.desiredpressure >= 0){//if the reservoir pressure is more than 0 over desired in the bladder, turn comp off                                          
+    if(observedpressure - lumbar.desiredpressure >= 20){//if the reservoir pressure is more than 20 over desired in the bladder, turn comp off. changed this from 0                                          
       digitalWrite(COMP, LOW);
     }
-    else if(observedpressure - lumbar.desiredpressure <= -30){//if the reservoir pressure is more than 30 less than desired in the bladder, turn comp on                               
+    else if(observedpressure - lumbar.desiredpressure <= -50){//if the reservoir pressure is more than 50 less than desired in the bladder, turn comp on. changed from 30                            
       digitalWrite(COMP, HIGH);
     }
-    if(abs(observedpressure - lumbar.desiredpressure) < 30){//if within 30 of the target pressure in the bladder
+    if(abs(observedpressure - lumbar.desiredpressure) < 50){//if within 50 of the target pressure in the bladder. changed from 30
       if(!bladderchange.exittimerenable){//if this is the first time through this if statement since this pressure condition has been true
         bladderchange.exittimerstarttime = millis(); //if the reservoir is at the desired pressure, that means the lumbar bladder must be close as well, so start a counter
         bladderchange.exittimerenable = 1;//so we don't refresh exitcountertime
@@ -359,7 +358,7 @@ void lumbarAdjustfunction(){
       bladderchange.exittimerenable = 0;//set exittimerenable off if not within the target pressure
     }
     if(bladderchange.exittimerenable){//if exittimerenable was set by the condition of being close to the target pressure in the desired bladder
-      if (millis()-bladderchange.exittimerstarttime > 2000){//if current time minus the start of the exit counter exceeds 2000 ms
+      if (millis()-bladderchange.exittimerstarttime > 2000){//if current time minus the start of the exit counter exceeds 2000 ms. needs to be 2000 to give time for inactive bladders to vent
         bladderchange.exittimerenable = 0;//reset exittimerenable
         lumbar.on = 0; //turn off lumbar, the goal was reached
         EEPROM.put(2, lumbar.desiredposition);//write the new bladder position to saved address;
@@ -579,41 +578,20 @@ void massagebladderpinsetfunction(){//this function was created to simplify the 
 }
 
 void bolsterfunction(){
-  // PRESSURE MEASUREMENT IS INITIALLY DELAYED WHEN STARTING THIS FUNCTION FOR THE FIRST TIME, THAT IS ACCEPTABLE AND IS IGNORED. THE ONLY TIME IT REALLY MATTERS IS WHEN AN OVERPRESSURE FLAG IS SET
- if(dpad.up){//this means cushionup
-    if(!bolster.pressure_measure_enable && !bolster.cushion_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
-      digitalWrite(COMP, HIGH);//write stuff high and low based on wanting to increase the pressure in the cushion side bolsters
-      digitalWrite(VENT, LOW);
-      digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
-      digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
-      digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
-      digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
-      if(!bolster.pressure_measure_delay_timer_start){//if the pressure measurement delay timer hasn't started yet (first pass)
-        bolster.pressure_measure_delay_timer = millis();//set the timer equal to the current time
-        bolster.pressure_measure_delay_timer_start = 1;//set start to one so that the timer is not updated
-      }
-      if(millis()-bolster.pressure_measure_delay_timer > 500){//if 500 ms have passed since the timer started
-        bolster.pressure_measure_enable = 1;//pressure measure enable is set on. next pass through will jump to that 
-        bolster.pressure_measure_delay_timer_start = 0;//reset the delay timer for the next time the timer is needed
-      }
+  if(dpad.up){//this means cushionup
+    digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
+    digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
+    digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
+    digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
+    digitalWrite(VENT, LOW);
+
+    if(observedpressure < 700){//if we are below 700 pressure, write compressor high
+      digitalWrite(COMP, HIGH);
+      
     }
-    else if(bolster.pressure_measure_enable && !bolster.cushion_over_pres){//if pressure measure enable has been set and the cushion max pressure flag isn't set
-      if(observedpressure < 700){//if we are below 700 pressure, write everything to increase pressure on cushion bolsters
-        digitalWrite(COMP, HIGH);
-        digitalWrite(VENT, LOW);
-        digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
-        digitalWrite(RIGHT_CUSHION_BOLSTER, HIGH);
-        digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
-        digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
-      }
-      else if(observedpressure > 730){//if we go over 730, write the cushion bolsters and compressor low
-        digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
-        digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
-        digitalWrite(COMP, LOW);
-        bolster.cushion_over_pres = 1;//set the cushion overpressure flag. will no longer be able to increase pressure in the lower bolsters
-        bolster.pressure_measure_enable = 0;//since we just hit overpressure in this case, turn off the ability to immediately measure pressure if we go to the backrest
-      }//because the pressure appears to be at the maximum, so we need to introduce a delay
-    }
+    else if(observedpressure > 730){//if we go over 730, write the compressor low
+      digitalWrite(COMP, LOW);
+    }   
   }
   else if(dpad.down){//this means cushiondown. write stuff to drop the cushion bolster pressure
     digitalWrite(LEFT_CUSHION_BOLSTER, HIGH);
@@ -622,41 +600,20 @@ void bolsterfunction(){
     digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
     digitalWrite(COMP, LOW);
     digitalWrite(VENT, HIGH);
-    bolster.cushion_over_pres = 0;//can't be in a max pressure state anymore so write this flag low
   }
-  if(dpad.forward){//this means backrestup
-    if(!bolster.pressure_measure_enable && !bolster.backrest_over_pres){//if the backrest max pressure was reached but not the cushion and the pressure measurement hasn't started
-      digitalWrite(COMP, HIGH);//write stuff to increase pressure in the backrest bolsters.
-      digitalWrite(VENT, LOW);
-      digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
-      digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
-      digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
-      digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
-      if(!bolster.pressure_measure_delay_timer_start){//if this is the first pass through this statement since dpad.forward has been true
-        bolster.pressure_measure_delay_timer = millis();//set the timer to the current time
-        bolster.pressure_measure_delay_timer_start = 1;//set flag so that timer is not updated
-      }
-      if(millis()-bolster.pressure_measure_delay_timer > 500){//if the elapsed time since the timer was set hits 500 ms
-        bolster.pressure_measure_enable = 1;//set the flag to enable pressure measurement
-        bolster.pressure_measure_delay_timer_start = 0;//reset the timer start flag so that it will work the next time it is needed
-      }
+  if(dpad.forward){//this means backrestup  
+    digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
+    digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
+    digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
+    digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
+    digitalWrite(VENT, LOW);
+
+    if(observedpressure < 700){//write compressor to increase pressure in the backrest bolsters assuming the pressure is below 700
+      digitalWrite(COMP, HIGH);
+      
     }
-    else if(bolster.pressure_measure_enable && !bolster.backrest_over_pres){//if pressure measure enable is set and the backrest overpressure flag isn't set
-      if(observedpressure < 700){//write stuff to increase pressure in the backrest bolsters assuming the pressure is below 700
-        digitalWrite(COMP, HIGH);
-        digitalWrite(VENT, LOW);
-        digitalWrite(LEFT_CUSHION_BOLSTER, LOW);
-        digitalWrite(RIGHT_CUSHION_BOLSTER, LOW);
-        digitalWrite(LEFT_BACKREST_BOLSTER, HIGH);
-        digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
-      }
-      else if(observedpressure > 730){//if the pressure goes above 730, write the backrest bolster and compressor low, hit maximum pressure
-        digitalWrite(LEFT_BACKREST_BOLSTER, LOW);
-        digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
-        digitalWrite(COMP, LOW);
-        bolster.backrest_over_pres = 1;//set the backrest overpressure flag because the max backrest pressure was reached
-        bolster.pressure_measure_enable = 0; //just hit overpressure on the backrest so will need to delay the pressure measurement if doing cushion
-      }
+    else if(observedpressure > 730){//if the pressure goes above 730, write the compressor low, hit maximum pressure
+      digitalWrite(COMP, LOW);
     }
   }
   else if(dpad.backward){//this means backrestdown
@@ -666,7 +623,6 @@ void bolsterfunction(){
     digitalWrite(RIGHT_BACKREST_BOLSTER, HIGH);
     digitalWrite(COMP, LOW);
     digitalWrite(VENT, HIGH);
-    bolster.backrest_over_pres = 0;//can't be in a backrest overpressure condition anymore, so write the flag low
   }
   if(!dpad.up && !dpad.down && !dpad.forward && !dpad.backward){
     digitalWrite(LEFT_CUSHION_BOLSTER, LOW);//set everything low if no button is pressed
@@ -675,7 +631,5 @@ void bolsterfunction(){
     digitalWrite(RIGHT_BACKREST_BOLSTER, LOW);
     digitalWrite(COMP, LOW);
     digitalWrite(VENT, LOW);
-    bolster.pressure_measure_delay_timer_start = 0;//if the timer had started when the dpad was released, reset the enable flag so the timer will restart properly
-    //no need to reset the pressure_measure_enable flag to 0 because it only needs to be set to 0 if we hit overpressure on the backrest or cushion bolsters. 
   }
 }
