@@ -217,7 +217,7 @@ void loop() {
       CAN0.sendMsgBuf(0x650, 0, 2, massage.data);//send the massage values buffer. hex ID is 0x650 
       massage.messagetime = millis();
     }
-    if((millis()-massage.starttime)>(1000L*60L*10L)){//if the time that massage has been on exceeds 10 minutes 
+    if((millis()-massage.starttime)>(900000)){//if the time that massage has been on exceeds 15 minutes (changed from 10 minutes)
       massage.on = 0;//turn massage off
       myDFPlayer.play(6);//"massage off"
     }
