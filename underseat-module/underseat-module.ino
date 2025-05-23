@@ -105,7 +105,7 @@ void setup() {
  
   myDFPlayer.begin(softSerial, /*isACK = */true, /*doReset = */true);//mp3 player initializing. reset needs to be true for this shit to work on external power. will make a "pop"
   
-  myDFPlayer.volume(23);  //Set volume value on mp3 player. From 0 to 30
+  myDFPlayer.volume(27);  //Set volume value on mp3 player. From 0 to 30
   
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);//CAN initializing function. set to 500 KBPS because that is the speed the seat module CAN is running on (need one speed sent across the bus)
   CAN0.setMode(MCP_NORMAL);//not sure about this function but it is some other initializing thing and it is needed
