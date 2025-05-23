@@ -170,12 +170,8 @@ void loop() {
     seat.state--; //decrease seat state if not yet 0
     }; 
     bezelring.transition = 1; //set transition bit high since the bezel ring is held down
-    
-    
   }
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  playStatemessages(); //PLAYING VOICE MESSAGES WHEN A STATE CHANGE HAPPENS WITH THE BEZEL RING
 
   ////////////////////////////////////////////////WHEN BEZEL RING, DPAD, AND MASSAGE BUTTON ARE RELEASED//////////////////////////////////////////////////////////
   else if(bezelring.released){//finally, if the bezel ring is released to its original position, set transition to 0.
@@ -189,6 +185,8 @@ void loop() {
     massage.transition = 0;
   }
   ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+  playStatemessages(); //PLAYING VOICE MESSAGES WHEN A STATE CHANGE HAPPENS WITH THE BEZEL RING
 
   //////////////////////////////MASSAGE BUTTON AND MASSAGE CANBUS MESSAGE. ADJUSTMENTS TO THE MASSAGE WILL BE DONE BY A FUNCTION WHEN IN STATE 2/////////////////////////
   if(massage.btnpressed && !massage.transition){
