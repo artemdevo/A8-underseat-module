@@ -110,7 +110,6 @@ void setup() {
   CAN0.begin(MCP_ANY, CAN_500KBPS, MCP_8MHZ);//CAN initializing function. set to 500 KBPS because that is the speed the seat module CAN is running on (need one speed sent across the bus)
   CAN0.setMode(MCP_NORMAL);//not sure about this function but it is some other initializing thing and it is needed
   
-  //messageplaysupress = 1; //this is how i am avoiding a state 0 audio message from playing when the seat is turned on. if the user cycles back to state 0, the message will play
   
 //////////////////////////~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~MASSAGE STUFF INITIALIZING STUFF~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   savedmassagevalues.mode = EEPROM.read(0);//read the values from EEPROM
@@ -155,10 +154,10 @@ void loop() {
       seat.state = 0; //if at maximum state, go back to 0
     }
     else{
-    seat.state++; //play voice message for whatever state you just changed to, probably make it a switch case?
+    seat.state++; //increase seat state if not yet 3
     }
     bezelring.transition = 1;
-    //messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played 
+    
   }
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -168,20 +167,20 @@ void loop() {
       seat.state = 3; //if at 0 state, loop back around to highest state
     }
     else{
-    seat.state--; //play voice message for whatever state you just changed to, probably make it a switch case?
+    seat.state--; //decrease seat state if not yet 0
     }; 
-    bezelring.transition = 1; //prep for the state transition
-    //make sure transitionup is off
-    //messageplaysupress = 0;//set to 0 so that the voice message for the voice state will be played
+    bezelring.transition = 1; //set transition bit high since the bezel ring is held down
+    
+    
   }
   //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+  playStatemessages(); //PLAYING VOICE MESSAGES WHEN A STATE CHANGE HAPPENS WITH THE BEZEL RING
+
   ////////////////////////////////////////////////WHEN BEZEL RING, DPAD, AND MASSAGE BUTTON ARE RELEASED//////////////////////////////////////////////////////////
-  else if(bezelring.released){//finally, if the bezel ring is released to its original position, set the real state equal to the voice state, which is used to play voice messages
+  else if(bezelring.released){//finally, if the bezel ring is released to its original position, set transition to 0.
     bezelring.transition = 0;
   }
-
-  playStatemessages(); //PLAYING VOICE MESSAGES WHEN A STATE CHANGE HAPPENS WITH THE BEZEL RING
 
   if(!dpad.up && !dpad.down && !dpad.forward && !dpad.back){//if no button is being pressed on the dpad
     dpad.transition = 0;//set the transition byte back to 0, so that things can change when a d pad button press is detected again
@@ -200,8 +199,7 @@ void loop() {
     }
     else if(!massage.on){//if button is pressed with massage off
       seat.state = 1; //switch to massage state so that adjustments can be made with the d pad
-      //voicestate = 1; //have to change this even though the state 1 voice message won't be played
-      seat.state_message_play_supress = 1; //need to supress the voice message to play the message "massage adjustment, press the massage button to start"
+      seat.state_message_play_supress = 1; //need to supress the voice message "massage adjustment, press the massage button to start", so the other one plays
       myDFPlayer.play(5);//"massage on"
       massage.on = 1;
       massage.transition = 1;
@@ -260,7 +258,7 @@ void loop() {
 }
 
 //void bezelRingread(){
-  //int bezel_measured_value = analogRead(BEZ_RING);
+  //int bezel_measured_value = analogRead(BEZ_RING); original idea with this was the make a debounce function for the bezel ring but i don't think i need it
 
 //}
 
