@@ -131,8 +131,8 @@ void setup() {
   savedlumbarvalues.pressure = (savedlumbarvalues.byte1 << 8) | savedlumbarvalues.byte0;//pressure is an int, so it requires bitwise operations to be formed from 2 bytes
   savedlumbarvalues.position = EEPROM.read(2);
 
-  if(savedlumbarvalues.pressure < 0 || savedlumbarvalues.pressure > 730 || savedlumbarvalues.position > 2){//if the read pressure value is -1 (indicating a value of 0xffff in these two bytes, for EEPROM with no writes, set it to 0)
-                            //NOTE: this only works for atmega based MCUs that use 2 byte ints. also using >730 value if it somehow becomes corrupted and is bigger than this
+  if(savedlumbarvalues.pressure < 0 || savedlumbarvalues.pressure > 750 || savedlumbarvalues.position > 2){//if the read pressure value is -1 (indicating a value of 0xffff in these two bytes, for EEPROM with no writes, set it to 0)
+                            //NOTE: this only works for atmega based MCUs that use 2 byte ints. also using >750 value if it somehow becomes corrupted and is bigger than this. chnaged from 730
     for(int i = 0; i < 3; i++){//if saved values of pressure or position are impossible, write all 3 addresses to 0
       EEPROM.write(i, 0);
       savedlumbarvalues.pressure = 0;
@@ -371,7 +371,7 @@ void lumbarAdjustfunction(){
   if(!lumbar.bladderchange){//if we aren't doing a bladder change and lumbar is on, it must be a pressure change in the same bladder
     bladderchange.exittimerenable = 0; //reset the bladder change exit timer enable value, in case it was already set when a sudden pressure change interrupted it and it never set back to 0
     if(observedpressure > 730 || !dpad.forward){
-      digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 730 or if we are pressing backward on the dpad; using this lower value because it takes forever to get there
+      digitalWrite(COMP, LOW);//turn compressor off if measured pressure exceeds 730 or if we are pressing backward on the dpad
     }
     else if(dpad.forward && observedpressure < 700){//if the forward button is being pressed and the pressure in the bladder is less than 700
       digitalWrite(COMP, HIGH);//turn the compressor on to inflate the desired bladder and raise the pressure
@@ -523,7 +523,7 @@ void massagefunction(){
   ///~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~END OF CODE FOR SETTING PINS BASED ON MASSAGE MODE AND STATE~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
   ///////////////////////////////////////////////STATEMENTS TO CHANGE THE MASSAGE STATE DEPENDING ON THE MODE AND THE ELAPSED TIME IN THE CURRENT STATE///////////////////
-  if(millis()-massage.statestarttime > ((unsigned long)massage.intensity*500 + 1100)){ //if the time has elapsed to change state, advance the state
+  if(millis()-massage.statestarttime > ((unsigned long)massage.intensity*700 + 1100)){ //if the time has elapsed to change state, advance the state
     massage.state++;
     massage.statestarttime = millis();//set the current time as the new state start time
   }
@@ -547,7 +547,7 @@ void massagefunction(){
   if(observedpressure<600){//turn the vent on if pressure goes above 800 and close it again if pressure drops below 600
     digitalWrite(VENT, LOW);//these two VENT pin writes are to prevent pressure from rising too high during the massage function
   }
-  else if(observedpressure>800){//
+  else if(observedpressure>800){//release pressure if above 800. this applies to massage only 
     digitalWrite(VENT, HIGH);  
   }
 }
